@@ -1,0 +1,19 @@
+These are just some tools or snippets I wrote for some very specific
+purposes.
+
+This repository currently contains the following scripts:
+* stretch_video
+  Usage: stretch_video factor filename
+
+  Changes the speed of the video by the given factor. It uses
+  soundstretch to resample the sound track of the source file. All
+  other tracks are copied directly and only resynced to the new audio,
+  so the frame rate of video tracks will increase/decrease
+  accordingly. Subtitle tracks are resynced as well.
+
+  Due to using soundstretch, the quality is somewhat better than with
+  mplayer -af scaletempo.
+
+  This script accepts most container formats and all audio formats
+  ffmpeg can handle. Tested with mkv, mp4, flv and QuickTime. The
+  result will always be a Matroska file (mkv) with ogg vorbis audio.

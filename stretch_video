@@ -1,0 +1,176 @@
+#!/bin/bash
+# Copyright: Christoph Dittmann <github@christoph-d.de>
+# License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
+#
+# This script stretches a video by the given factor. It can be used to
+# speed up videos that you find too slow, like some lectures. It can
+# also be used to slow down videos that are too fast for you, which
+# might be useful if you're learning a foreign language.
+
+
+# Shell options: Exit on error. Using undefined variables is an error.
+set -e -u
+
+for P in mkvinfo-text mkvmerge mkvextract ffmpeg soundstretch oggenc bc; do
+    if [[ ! -x $(which "$P") ]]; then
+        echo "Error: You need to install the following program: $P"
+        exit 1
+    fi
+done
+
+# Fix the locale because we are going to parse the output of mkvinfo.
+export LC_ALL=C
+
+SPEED_FACTOR=$1
+SOURCE=$2
+TARGET="$(dirname "$SOURCE")/stretched/$(basename "$SOURCE")"
+if [[ $# -ne 2 \
+    || ! -f $SOURCE \
+    || $(echo "$SPEED_FACTOR < 0.05 || $SPEED_FACTOR > 51" | bc) -eq 1 ]]; then
+    echo "Usage: stretch_video factor filename"
+    echo "Increases playback speed by factor. Minimum factor is 0.05, maximum 51."
+    echo "Stores new files in a subfolder named 'stretched' located in the same place as 'filename'."
+    echo "Discards all audio tracks except the first."
+    echo
+    echo "Example (makes playback 50% faster):"
+    echo "stretch_video 1.5 source.mkv"
+    exit 1
+fi
+
+# Checks if $LOG_FILE is present. If it is, prints its content.
+die() {
+    if [[ -s $LOG_FILE ]]; then
+        echo "---"
+        echo "Output of the last command:"
+        cat "$LOG_FILE"
+        echo
+    fi
+    printf "\n%s\n" "$1"
+    echo "An error occured. Aborting."
+    exit 1
+}
+# Prints mkv track ids of $SOURCE on stdout. If $1 is "audio", only
+# the ID of the first audio track is printed. If the first parameter
+# is not "audio" the ids of all non-audio tracks are printed.
+get_track_ids() {
+    local AUDIO=
+    [[ $# -eq 1 && $1 = "audio" ]] && local AUDIO=1
+    local TRACKS=$(mkvinfo-text "$SOURCE" | grep '^|  + Track type: ')
+    local TRACK_IDS=( $(mkvinfo-text "$SOURCE" \
+        | grep '^|  + Track number: \([0-9]\+\)$' \
+        | sed 's/.*\([0-9]\+\)/\1/') )
+    local TIME_CODE_PARAMS=
+    local I=0
+    # Loop over lines instead of words.
+    local OLD_IFS="$IFS"
+    IFS=$'\n'
+    for T in $TRACKS; do
+        if [[ $T = '|  + Track type: audio' ]]; then
+            [[ -n $AUDIO ]] && echo "${TRACK_IDS[$I]}" && return 0
+        else
+            [[ -z $AUDIO ]] && echo -n "${TRACK_IDS[$I]} "
+        fi
+        let I=$I+1
+    done
+    IFS="$OLD_IFS"
+    echo
+}
+
+TEMP_DIR="/tmp/stretch_video_tmp"
+TEMP_BASENAME="$TEMP_DIR/$SOURCE.$RANDOM$RANDOM$RANDOM"
+
+LOG_FILE="$TEMP_BASENAME.log"
+
+AUDIO_BASENAME="$TEMP_BASENAME.audio"
+AUDIO_SOURCE="$AUDIO_BASENAME.source"
+AUDIO_WAVE="$AUDIO_BASENAME.wav"
+AUDIO_TARGET="$AUDIO_BASENAME.target"
+
+# This variable will be set later if the source is not mkv.
+VIDEO_TEMP=
+
+mkdir -p "$(dirname "$1")/stretched" \
+    || die "Could not create subdirectory $(dirname "$1")/stretched!"
+mkdir -p "$TEMP_DIR" \
+    || die "Could not create temporary directory $TEMP_DIR!"
+
+if [[ $(file --brief "$SOURCE") != "Matroska data" ]]; then
+    echo "Warning: Source file is not a Matroska file."
+    echo -n "Trying to fix it with mkvmerge..."
+    VIDEO_TEMP="$TEMP_BASENAME.video.mkv"
+    mkvmerge -o "$VIDEO_TEMP" "$SOURCE" &> "$LOG_FILE" || true
+    # Unfortunately, the return value of mkvmerge is not always very
+    # helpful, so we ignore it. Check manually if some mkv file was
+    # created.
+    if [[ $(file --brief "$VIDEO_TEMP") != "Matroska data" ]]; then
+        echo -n "mkvmerge failed, trying ffmpeg..."
+        rm -f "$VIDEO_TEMP"
+        ffmpeg -i "$SOURCE" -acodec copy -vcodec copy -scodec copy \
+            "$VIDEO_TEMP" &> "$LOG_FILE" \
+            || die "Could not create Matroska file!"
+        # Check if mkvmerge accepts the mkv file. It is possible that
+        # ffmpeg creates mkv files that mkvmerge does not accept
+        # (e.g., this may happen for some QuickTime source).
+        mkvmerge -o /dev/null "$VIDEO_TEMP" &> "$LOG_FILE" \
+            || die "ffmpeg created an invalid Matroska file!"
+    fi
+    SOURCE="$VIDEO_TEMP"
+    # Fix file extension
+    TARGET=${TARGET%.*}.mkv
+    echo "done"
+fi
+
+echo -n > "$LOG_FILE"
+AUDIO_TRACK_ID=$(get_track_ids audio)
+[[ -n $AUDIO_TRACK_ID ]] || die "Could not parse the output of mkvinfo!"
+echo -n "Extracting first audio track (id $AUDIO_TRACK_ID)..."
+mkvextract tracks "$SOURCE" "$AUDIO_TRACK_ID":"$AUDIO_SOURCE" &> "$LOG_FILE" \
+    || die "Could not extract audio track!"
+echo "done"
+
+echo -n "Converting audio track to wave file..."
+# Make sure $AUDIO_WAVE does not exist or ffmpeg complains.
+rm -f "$AUDIO_WAVE"
+ffmpeg -i "$AUDIO_SOURCE" -ac 2 "$AUDIO_WAVE" &> "$LOG_FILE" \
+    || die "Could not recode audio track to wave!"
+rm -f "$AUDIO_SOURCE"
+echo "done"
+
+SPEED_PERCENT=$(echo "($SPEED_FACTOR-1)*100" | bc)
+echo -n "Changing wave file playback speed by $SPEED_PERCENT%..."
+soundstretch "$AUDIO_WAVE" "$AUDIO_TARGET" \
+    -tempo="$SPEED_PERCENT" &> "$LOG_FILE" \
+    || die "soundstretch failed!"
+mv "$AUDIO_TARGET" "$AUDIO_WAVE"
+echo "done"
+
+echo -n "Reencoding wave file to ogg vorbis..."
+oggenc -q5 "$AUDIO_WAVE" -o "$AUDIO_TARGET" &> "$LOG_FILE" \
+    || die "oggenc failed!"
+rm -f "$AUDIO_WAVE"
+echo "done"
+
+echo -n "Remuxing and resyncing ogg file with remaining streams..."
+
+# We want to copy all tracks except audio tracks. That could be very
+# easy using the --no-audio flag of mkvmerge. Unfortunately, we also
+# need to resync all tracks to match our new, stretched audio track,
+# and for this mkvmerge needs one parameter per track. That's why we
+# extract the track numbers of non-audio tracks and build up the
+# command line manually.
+TIME_CODE_PARAMS=
+for T in $(get_track_ids); do
+    TIME_CODE_PARAMS="$TIME_CODE_PARAMS --sync $T:0,1/$SPEED_FACTOR"
+done
+
+# Do not quote $TIME_CODE_PARAMS because it needs to split into
+# individual parameters.
+mkvmerge -o "$TARGET" --no-audio $TIME_CODE_PARAMS "$SOURCE" "$AUDIO_TARGET" &> "$LOG_FILE" \
+    || die "Could not remux temporary files!"
+rm -f "$AUDIO_TARGET" "$LOG_FILE"
+[[ -n $VIDEO_TEMP ]] && rm -f "$VIDEO_TEMP"
+echo "done"
+
+echo "Successfully created file: $TARGET"
+
+exit 0
