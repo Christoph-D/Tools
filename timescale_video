@@ -2,11 +2,11 @@
 # Copyright: Christoph Dittmann <github@christoph-d.de>
 # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
 #
-# This script stretches a video by the given factor. It can be used to
-# speed up videos that you find too slow, like some lectures. It can
-# also be used to slow down videos that are too fast for you, which
-# might be useful if you're learning a foreign language.
-
+# This script scales a video in time by the given factor. It can be
+# used to speed up videos that you find too slow, like some
+# lectures. It can also be used to slow down videos that are too fast
+# for you, which might be useful if you're learning a foreign
+# language.
 
 # Shell options: Exit on error. Using undefined variables is an error.
 set -e -u
@@ -23,17 +23,17 @@ export LC_ALL=C
 
 SPEED_FACTOR=$1
 SOURCE=$2
-TARGET="$(dirname "$SOURCE")/stretched/$(basename "$SOURCE")"
+TARGET="$(dirname "$SOURCE")/timescaled/$(basename "$SOURCE")"
 if [[ $# -ne 2 \
     || ! -f $SOURCE \
     || $(echo "$SPEED_FACTOR < 0.05 || $SPEED_FACTOR > 51" | bc) -eq 1 ]]; then
-    echo "Usage: stretch_video factor filename"
+    echo "Usage: timescale_video factor filename"
     echo "Increases playback speed by factor. Minimum factor is 0.05, maximum 51."
-    echo "Stores new files in a subfolder named 'stretched' located in the same place as 'filename'."
+    echo "Stores new files in a subfolder named 'timescaled' located in the same place as 'filename'."
     echo "Discards all audio tracks except the first."
     echo
     echo "Example (makes playback 50% faster):"
-    echo "stretch_video 1.5 source.mkv"
+    echo "timescale_video 1.5 source.mkv"
     exit 1
 fi
 
@@ -76,7 +76,7 @@ get_track_ids() {
     echo
 }
 
-TEMP_DIR="/tmp/stretch_video_tmp"
+TEMP_DIR="/tmp/timescale_video_tmp"
 TEMP_BASENAME="$TEMP_DIR/$SOURCE.$RANDOM$RANDOM$RANDOM"
 
 LOG_FILE="$TEMP_BASENAME.log"
@@ -89,8 +89,8 @@ AUDIO_TARGET="$AUDIO_BASENAME.target"
 # This variable will be set later if the source is not mkv.
 VIDEO_TEMP=
 
-mkdir -p "$(dirname "$1")/stretched" \
-    || die "Could not create subdirectory $(dirname "$1")/stretched!"
+mkdir -p "$(dirname "$1")/timescaled" \
+    || die "Could not create subdirectory $(dirname "$1")/timescaled!"
 mkdir -p "$TEMP_DIR" \
     || die "Could not create temporary directory $TEMP_DIR!"
 
@@ -154,8 +154,8 @@ echo -n "Remuxing and resyncing ogg file with remaining streams..."
 
 # We want to copy all tracks except audio tracks. That could be very
 # easy using the --no-audio flag of mkvmerge. Unfortunately, we also
-# need to resync all tracks to match our new, stretched audio track,
-# and for this mkvmerge needs one parameter per track. That's why we
+# need to resync all tracks to match our new, scaled audio track, and
+# for this mkvmerge needs one parameter per track. That's why we
 # extract the track numbers of non-audio tracks and build up the
 # command line manually.
 TIME_CODE_PARAMS=
