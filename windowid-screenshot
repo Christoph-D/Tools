@@ -1,0 +1,44 @@
+#!/bin/bash
+# Copyright: Christoph Dittmann <github@christoph-d.de>
+# License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
+#
+# This script takes a screenshot of a window. It saves the screenshots
+# as 1.png, 1_small_A.png and 1_small_B.png. 1.png is the original,
+# the smaller versions are created using different scale filters. The
+# aspect ratio is assumed to be 4:3.
+# 
+# The scaled down versions are suitable for Anki cards.
+
+set -e -u
+
+if [[ $# -ne 1 ]]; then
+    echo "Please click on a window."
+    WINDOW_ID="$(xwininfo | grep -m 1 'Window id: ' | sed 's/^.*Window id: \([^ ]*\) .*$/\1/')"
+    echo "Window id: $WINDOW_ID"
+else
+    WINDOW_ID="$1"
+fi
+
+if ! import -silent -window "$WINDOW_ID" 1.png; then
+    echo "Import failed. Invalid window ID?"
+    exit 1
+fi
+
+convert 1.png -adaptive-resize 400x300 1_small_A.png
+convert 1.png -resize 400x300 1_small_B.png
+
+gimp_code() {
+    echo '(let* ((image (car (gimp-file-load RUN-NONINTERACTIVE "'"$1"'" "'"$1"'")))
+          (drawable (car (gimp-image-get-active-layer image))))
+     (gimp-file-save RUN-NONINTERACTIVE image drawable "'"$1"'" "'"$1"'")
+     (gimp-image-delete image))'
+}
+
+# Make the image file a lot smaller
+gimp -i -b "
+    $(gimp_code '1.png')
+    $(gimp_code '1_small_A.png')
+    $(gimp_code '1_small_B.png')
+    (gimp-quit 0)"
+
+exit 0
