@@ -34,8 +34,7 @@ run() {
     # Unquote $OLD_EXIT_TRAP.
     OLD_EXIT_TRAP=$(eval printf '%s' $OLD_EXIT_TRAP)
     # Insert our clean-up function.
-    clean_up() { rm -f "$STDOUT_FILE" "$STDERR_FILE"; }
-    trap "clean_up ; $OLD_EXIT_TRAP" EXIT
+    trap "rm -f '$STDOUT_FILE' '$STDERR_FILE'; $OLD_EXIT_TRAP" EXIT
     STDOUT_FILE=$(mktemp)
     STDERR_FILE=$(mktemp)
 
@@ -45,7 +44,7 @@ run() {
     # Clean up
     STDOUT=$(cat "$STDOUT_FILE")
     STDERR=$(cat "$STDERR_FILE")
-    clean_up
+    rm -f "$STDOUT_FILE" "$STDERR_FILE"
     # Restore the old EXIT trap.
     [[ $TRAP_WAS_SET ]] && trap "$OLD_EXIT_TRAP" EXIT || trap EXIT
 }
