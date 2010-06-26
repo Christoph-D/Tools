@@ -5,12 +5,12 @@ set -e -u
 
 # Prints a stack trace to stderr.
 print_callstack() {
-    echo -e '*** stack trace [line function file] ***' >&2
+    echo '*** stack trace [line function file] ***' >&2
     local I=0
     while caller $I >&2; do
         let ++I
     done
-    echo -e '*** end of trace ***' >&2
+    echo '*** end of trace ***' >&2
 }
 
 # Test the stack trace.
