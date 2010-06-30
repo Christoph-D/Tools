@@ -1,0 +1,82 @@
+#!/bin/bash
+set -e -u
+
+if [[ $# -lt 2 ]]; then
+    echo "Usage: $(basename "$0") <height:width> <input files>"
+    exit 1
+fi
+
+is_float() {
+    printf '%s\n' "$1" | grep -q '^[0-9]\+\.[0-9]\+$'
+}
+# Prints the length of a video in seconds on stdout.
+get_length() {
+    mplayer -identify -frames 0 "$1" 2>/dev/null | grep ID_LENGTH= | sed 's/^ID_LENGTH=//'
+}
+# Prints the current stream position in seconds on stdout.
+# Expects suitable file descriptors in MPLAYER[0] and MPLAYER[1].
+get_position() {
+    local POSITION
+    while read -t 0.1 -u ${MPLAYER[0]} POSITION; do :; done 2>/dev/null
+    echo "get_property time_pos" >&${MPLAYER[1]} 2>/dev/null
+    read -t 3 -u ${MPLAYER[0]} POSITION 2>/dev/null
+    POSITION="${POSITION#ANS_time_pos=}"
+    if is_float "$POSITION"; then
+        #echo "$POSITION of $LENGTH"
+        echo "scale=2;100*$POSITION/$LENGTH" | bc
+    fi
+}
+reencode() {
+    local SOURCE_FILE="$1"
+    if [[ "$(readlink -f "$(dirname "$SOURCE_FILE")")" = "$(pwd)" ]]; then
+        echo "Error: $SOURCE_FILE resides in the current directory."
+        echo "This will likely cause collisions with the result file. Aborting."
+        exit 1
+    fi
+
+    # Give the user something to look at.
+    printf '* Starting reencoding of: %s\n' "$(basename "$SOURCE_FILE")"
+    local LENGTH=$(get_length "$SOURCE_FILE")
+    local MINUTES=$(echo "$LENGTH/60" | bc)
+    local SECONDS=$(echo "$LENGTH%60" | bc)
+    printf "  Video length: %02.0f:%02.0f\n" "$MINUTES" "$SECONDS"
+
+    # Setup encoding threads.
+    local TMP_SOURCE_FILE="$TMP_DIR/source.y4m"
+    local TMP_RESULT_FILE="$TMP_DIR/result.mkv"
+    rm -f "$TMP_SOURCE_FILE" "$TMP_RESULT_FILE"
+    mkfifo "$TMP_SOURCE_FILE"
+    coproc MPLAYER (
+        mplayer -vo yuv4mpeg:file="$TMP_SOURCE_FILE" \
+            -vf scale="$NEW_SIZE" -nosound -slave -quiet "$SOURCE_FILE" 2>/dev/null
+    )
+    x264 --tune animation --preset medium --crf 20 --threads auto \
+        --output "$TMP_RESULT_FILE" "$TMP_SOURCE_FILE" &>/dev/null &
+
+    # Display status while encoding.
+    while POSITION=$(get_position); do
+        printf '\r  Recoding  %5.2f%% done.' "$POSITION"
+        sleep 0.1
+    done
+    wait
+    echo -e "\r  Recoding 100.00% done."
+
+    # Merge into final container.
+    echo -n "  Merging encoded stream into new mkv container..."
+    local NEW_FILE="$(basename "$1")"
+    NEW_FILE=${NEW_FILE%.*}.mkv
+    mkvmerge -o "$NEW_FILE" "$TMP_RESULT_FILE" --no-video "$SOURCE_FILE" &> /dev/null
+    echo "done."
+}
+
+TMP_DIR=$(mktemp --directory)
+# Be sure to kill mplayer and x264 on abnormal exit.
+trap "rm -rf '$TMP_DIR'; kill %1 %2 &> /dev/null" EXIT
+
+NEW_SIZE=$1
+shift
+for SOURCE in "$@"; do
+    reencode "$SOURCE"
+done
+
+exit 0

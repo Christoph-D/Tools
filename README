@@ -2,6 +2,14 @@ These are just some tools or snippets I wrote for some very specific
 purposes.
 
 This repository currently contains the following scripts:
+* resize_videos
+  Usage: resize_videos <height:width> <input files>
+
+  Resizes the given videos and places the results in the current
+  directory. Useful if a video happens to be too big for a netbook.
+
+  On a technical note, this is the first script ever where I found use
+  for the "coproc" bash built-in.
 * timescale_video
   Usage: timescale_video factor filename
 
