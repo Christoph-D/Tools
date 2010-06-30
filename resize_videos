@@ -50,7 +50,7 @@ reencode() {
     mkfifo "$TMP_SOURCE_FILE"
     coproc MPLAYER (
         mplayer -vo yuv4mpeg:file="$TMP_SOURCE_FILE" \
-            -vf scale="$NEW_SIZE" -nosound -slave -quiet "$SOURCE_FILE" 2>/dev/null
+            -vf scale="$NEW_SIZE" -nosound -slave -quiet -benchmark "$SOURCE_FILE" 2>/dev/null
     )
     x264 --tune animation --preset medium --crf 20 --threads auto \
         --output "$TMP_RESULT_FILE" "$TMP_SOURCE_FILE" &>/dev/null &
