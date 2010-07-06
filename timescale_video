@@ -21,8 +21,8 @@ done
 # Fix the locale because we are going to parse the output of mkvinfo.
 export LC_ALL=C
 
-SPEED_FACTOR=$1
-SOURCE=$2
+SPEED_FACTOR=${1-}
+SOURCE=${2-}
 TARGET="$(dirname "$SOURCE")/timescaled/$(basename "$SOURCE")"
 if [[ $# -ne 2 \
     || ! -f $SOURCE \
