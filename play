@@ -14,29 +14,76 @@ screenshot_dir=~/.mplayer/screenshots
 
 mkdir -p "$screenshot_dir"
 
-next_file() { ( 
+next_file() { (
     cd "$screenshot_dir"
-    for file in screen???.png; do last=$file; done
-    if [[ $last = screen\?\?\?.png ]]; then
-	printf 'screen000.png'
+    for file in $1???.$2; do last=$file; done
+    if [[ $last = $1\?\?\?.$2 ]]; then
+        printf "%s000.%s" "$1" "$2"
     else
-	printf 'screen%03d.png' \
-	    $(( 1 + $(echo $last | sed 's/screen\([0-9]*\)\.png/\1/') ))
+        printf "%s%03d.%s" "$1" \
+            $(( 1 + $(echo $last | sed "s/$1\([0-9]*\)\.$2/\1/") )) "$2"
     fi
 ) }
 
-while read -r line; do
-    time=$(printf '%s' "$line" | \
-	grep '^ANS_TIME_POSITION=.*$' | \
-	sed --unbuffered 's/^.*=//')
-    [[ $time ]] || continue
+capture_audio() {
+    echo 'Not implemented!'
+    return 1
+    # The following code is broken due to imprecisions.
+    target=$1
+    start=$2
+    duration=$3
+    tmp=/tmp/foo$RANDOM$RANDOM$RANDOM.wav
+    tmp2=/tmp/foo$RANDOM$RANDOM$RANDOM-2.wav
+    echo "Extracting audio from time ${start}s to ${time}s (${duration}s in total)..."
+    ffmpeg -y -ss "$time" -t "$duration" -i "$1" -vn "$tmp" &>/dev/null && \
+        ffmpeg -y -t "$duration" -i "$tmp" -vn -acodec copy "$tmp2" &>/dev/null && \
+        oggenc -q 4 "$tmp2" -o "$target" &>/dev/null && \
+        rm "$tmp" "$tmp2"
+}
 
-    target=$(next_file)
-    echo "Saving screenshot at time ${time}s..."
-    if ffmpeg -ss "$time" -vframes 1 -i "$1" "$screenshot_dir/$target" &>/dev/null; then
-	echo "Saved screenshot: $screenshot_dir/$target"
+mode=screenshot
+start=
+while read -r line; do
+    time=$(printf '%s' "$line" | sed 's/^ANS_TIME_POSITION=\(.*\)$/\1/;t;d')
+    switch_mode=$(printf '%s' "$line" | sed 's/^ANS_PERCENT_POSITION=\(.*\)$/\1/;t;d')
+    [[ $time || $switch_mode ]] || continue
+
+    if [[ $switch_mode ]]; then
+        if [[ $mode = screenshot ]]; then
+            mode=audio
+            echo 'Switched to audio mode!'
+            continue
+        else
+            mode=screenshot
+            start=
+            echo 'Switched to screenshot mode!'
+            continue
+        fi
+    fi
+
+    if [[ $mode = screenshot ]]; then
+        target=$(next_file screen png)
+        echo "Saving screenshot at time ${time}s..."
+        if ffmpeg -ss "$time" -vframes 1 -i "$1" "$screenshot_dir/$target" &>/dev/null; then
+            echo "Saved screenshot: $screenshot_dir/$target"
+        else
+            echo "Could not save screenshot. An error occured."
+        fi
     else
-	echo "Could not save screenshot. An error occured."
+        if [[ ! $start ]]; then
+            start=$time
+            echo "Starting audio capture at time ${time}s..."
+        else
+            target=$(next_file audio ogg)
+            duration=$( echo "$time - $start" | bc )
+            echo "Extracting audio from time ${start}s to ${time}s (${duration}s in total)..."
+            echo ffmpeg -ss "$time" -t "$duration" -i "$1" -vn -acodec copy "$screenshot_dir/$target"
+            if capture_audio "$screenshot_dir/$target" $start $duration; then
+                echo "Saved audio: $screenshot_dir/$target"
+            else
+                echo "Could not save audio. An error occured."
+            fi
+        fi
     fi
 done < <(/usr/bin/mplayer "$1")
 
