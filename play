@@ -1,0 +1,43 @@
+#!/bin/bash
+
+set -e -u
+
+if [[ $# -ne 1 ]]; then
+    echo "Usage: ${0##*/} <video-file>"
+    echo "Press 's' during playback to save a screenshot. Works with -vo vdpau."
+    echo "If nothing happens when you press 's', you may want to add the following line to ~/.mplayer/input.conf:"
+    echo "s get_time_pos"
+    exit 0
+fi
+
+screenshot_dir=~/.mplayer/screenshots
+
+mkdir -p "$screenshot_dir"
+
+next_file() { ( 
+    cd "$screenshot_dir"
+    for file in screen???.png; do last=$file; done
+    if [[ $last = screen\?\?\?.png ]]; then
+	printf 'screen000.png'
+    else
+	printf 'screen%03d.png' \
+	    $(( 1 + $(echo $last | sed 's/screen\([0-9]*\)\.png/\1/') ))
+    fi
+) }
+
+while read -r line; do
+    time=$(printf '%s' "$line" | \
+	grep '^ANS_TIME_POSITION=.*$' | \
+	sed --unbuffered 's/^.*=//')
+    [[ $time ]] || continue
+
+    target=$(next_file)
+    echo "Saving screenshot at time ${time}s..."
+    if ffmpeg -ss "$time" -vframes 1 -i "$1" "$screenshot_dir/$target" &>/dev/null; then
+	echo "Saved screenshot: $screenshot_dir/$target"
+    else
+	echo "Could not save screenshot. An error occured."
+    fi
+done < <(/usr/bin/mplayer "$1")
+
+exit 0
