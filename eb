@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e -u
+
+DICTIONARY=$1
+PATTERN=${2//\"/}
+MAXHITS=${3-50}
+
+if [[ $# -ne 2 && $# -ne 3 || ! $MAXHITS =~ ^[0-9]+$ ]]; then
+    echo 'Usage: eb <dictionary> <pattern> [max-hits]'
+    exit 0
+fi
+
+eb() {
+    local RESULT=$(mktemp), EB
+    coproc EB { eblook "$DICTIONARY" >"$RESULT"; }
+
+    # Send the commands to eblook
+    printf \
+'list
+select 1
+set max-hits %s
+%s
+set prompt "$$$$"
+%s
+quit
+' "$MAXHITS" "$1" "$2" >&${EB[1]}
+    wait
+
+    grep -F -m 1 -A $MAXHITS '$$$$' "$RESULT" | \
+        sed '
+1s/^\(eblook> \)*\$\$\$\$\(\$\$\$\$\)\?//; # remove the prompt
+s/<reference>/　　/;
+s/<\/reference=[^>]\+>//;
+s/^<\(prev\|next\)>.*//;
+s/<more[^>]*>/ (...)/;
+s/<[^>]*>//g;
+s/^ *[0-9]\+\. \([0-9:]\+\t\)/\1/;	
+' | grep .
+    rm "$RESULT"
+}
+
+# Print a list of candidates.
+if [[ $# -eq 3 || $PATTERN =~ \* ]]; then
+    eb "" "search \"$PATTERN\""
+    exit 0
+fi
+
+# From here on we don't want to restrict the number of lines in the
+# result, so set MAXHITS to something huge.
+MAXHITS=512
+
+# Search for content id.
+if [[ $PATTERN =~ ^[0-9:]+$ ]]; then
+    RESULT=$(eb "" "content $PATTERN")
+    NO_RESULT='No search has been executed yet.'
+else
+    # Do a search and print the first result.
+    RESULT=$(eb "search \"$PATTERN\"" "content 1")
+    NO_RESULT='Too big: 1'
+fi
+
+if [[ $RESULT = $NO_RESULT ]]; then
+    echo 'No result.'
+else
+    printf '%s\n' "$RESULT"
+fi
+
+exit 0
