@@ -89,8 +89,8 @@ AUDIO_TARGET="$AUDIO_BASENAME.target"
 # This variable will be set later if the source is not mkv.
 VIDEO_TEMP=
 
-mkdir -p "$(dirname "$1")/timescaled" \
-    || die "Could not create subdirectory $(dirname "$1")/timescaled!"
+mkdir -p "$(dirname "$SOURCE")/timescaled" \
+    || die "Could not create subdirectory $(dirname "$SOURCE")/timescaled!"
 mkdir -p "$TEMP_DIR" \
     || die "Could not create temporary directory $TEMP_DIR!"
 
