@@ -77,7 +77,7 @@ get_track_ids() {
 }
 
 TEMP_DIR="/tmp/timescale_video_tmp"
-TEMP_BASENAME="$TEMP_DIR/$SOURCE.$RANDOM$RANDOM$RANDOM"
+TEMP_BASENAME="$TEMP_DIR/$(basename "$SOURCE").$RANDOM$RANDOM$RANDOM"
 
 LOG_FILE="$TEMP_BASENAME.log"
 
