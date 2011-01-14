@@ -25,20 +25,27 @@ next_file() { (
     fi
 ) }
 
-capture_audio() {
-    echo 'Not implemented!'
-    return 1
-    # The following code is broken due to imprecisions.
-    target=$1
-    start=$2
-    duration=$3
-    tmp=/tmp/foo$RANDOM$RANDOM$RANDOM.wav
-    tmp2=/tmp/foo$RANDOM$RANDOM$RANDOM-2.wav
-    echo "Extracting audio from time ${start}s to ${time}s (${duration}s in total)..."
-    ffmpeg -y -ss "$time" -t "$duration" -i "$1" -vn "$tmp" &>/dev/null && \
-        ffmpeg -y -t "$duration" -i "$tmp" -vn -acodec copy "$tmp2" &>/dev/null && \
-        oggenc -q 4 "$tmp2" -o "$target" &>/dev/null && \
-        rm "$tmp" "$tmp2"
+convert_seconds_to_mkvmerge_format() {
+    local seconds=$1
+    local hours=$(echo $seconds/3600 | bc)
+    seconds=$(echo $seconds-$hours*3600 | bc)
+    local minutes=$(echo $seconds/60 | bc)
+    seconds=$(echo $seconds-$minutes*60 | bc)
+    printf '%02d:%02d:%06.3f\n' "$hours" "$minutes" "$seconds"
+}
+
+extract_segment() {
+    local source=$1
+    local target=$2
+    local start=$(convert_seconds_to_mkvmerge_format $3)
+    local end=$(convert_seconds_to_mkvmerge_format $4)
+
+    local temp_dir=$(mktemp -d)
+    echo -n 'Please wait, extracting segment...'
+    mkvmerge -o "$temp_dir/result.mkv" --split timecodes:$start,$end "$source" >/dev/null
+    echo 'done.'
+    mv "$temp_dir/result-002.mkv" "$target"
+    rm -r "$temp_dir"
 }
 
 mode=screenshot
@@ -72,17 +79,18 @@ while read -r line; do
     else
         if [[ ! $start ]]; then
             start=$time
-            echo "Starting audio capture at time ${time}s..."
+            echo "Starting capture at time ${time}s..."
         else
-            target=$(next_file audio ogg)
+            target=$(next_file segment mkv)
             duration=$( echo "$time - $start" | bc )
-            echo "Extracting audio from time ${start}s to ${time}s (${duration}s in total)..."
-            echo ffmpeg -ss "$time" -t "$duration" -i "$1" -vn -acodec copy "$screenshot_dir/$target"
-            if capture_audio "$screenshot_dir/$target" $start $duration; then
-                echo "Saved audio: $screenshot_dir/$target"
+            echo "Extracting segment from time ${start}s to ${time}s (${duration}s in total)..."
+            #echo ffmpeg -ss "$time" -t "$duration" -i "$1" -vn -acodec copy "$screenshot_dir/$target"
+            if extract_segment "$1" "$screenshot_dir/$target" $start $time; then
+                echo "Saved segment: $screenshot_dir/$target"
             else
-                echo "Could not save audio. An error occured."
+                echo "Could not save segment. An error occured."
             fi
+            start=
         fi
     fi
 done < <(/usr/bin/mplayer "$1")
