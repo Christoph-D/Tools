@@ -1,0 +1,33 @@
+#!/bin/bash
+# Copyright: Christoph Dittmann <github@christoph-d.de>
+# License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
+#
+# This script takes a screenshot of a region of the screen selected by
+# clicking with the mouse. The png file it produces will usually be
+# smaller than what the standard import program does.
+
+set -e -u
+
+if [[ $# -ne 1 ]]; then
+    echo 'Usage:'
+    echo 'better_import filename'
+    exit 1
+fi
+
+FILENAME="$1"
+
+import "$FILENAME"
+
+gimp_code() {
+    echo '(let* ((image (car (gimp-file-load RUN-NONINTERACTIVE "'"$1"'" "'"$1"'")))
+          (drawable (car (gimp-image-get-active-layer image))))
+     (gimp-file-save RUN-NONINTERACTIVE image drawable "'"$1"'" "'"$1"'")
+     (gimp-image-delete image))'
+}
+
+# Make the image file a lot smaller
+gimp -i -b "
+    $(gimp_code "$FILENAME")
+    (gimp-quit 0)"
+
+exit 0
