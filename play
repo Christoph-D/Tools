@@ -37,15 +37,19 @@ convert_seconds_to_mkvmerge_format() {
 extract_segment() {
     local source=$1
     local target=$2
+    local ogg_target=${target%.mkv}.ogg
     local start=$(convert_seconds_to_mkvmerge_format $3)
     local end=$(convert_seconds_to_mkvmerge_format $4)
 
     local temp_dir=$(mktemp -d)
     echo -n 'Please wait, extracting segment...'
     mkvmerge -o "$temp_dir/result.mkv" --split timecodes:$start,$end "$source" >/dev/null
-    echo 'done.'
     mv "$temp_dir/result-002.mkv" "$target"
+    echo -n 'reencoding audio...'
+    ffmpeg -y -i "$target" "$temp_dir/result.wav" &>/dev/null
+    oggenc -o "$ogg_target" "$temp_dir/result.wav" &>/dev/null
     rm -r "$temp_dir"
+    echo 'done.'
 }
 
 mode=screenshot
