@@ -2,14 +2,14 @@
 
 set -e -u
 
-DICTIONARY=$1
-PATTERN=${2//\"/}
-MAXHITS=${3-50}
-
-if [[ $# -ne 2 && $# -ne 3 || ! $MAXHITS =~ ^[0-9]+$ ]]; then
+if [[ ! ( $# -eq 2 || $# -eq 3 && $3 =~ ^[0-9]+$ ) ]]; then
     echo 'Usage: eb <dictionary> <pattern> [max-hits]'
     exit 0
 fi
+
+DICTIONARY=$1
+PATTERN=${2//\"/}
+MAXHITS=${3-50}
 
 eb() {
     local RESULT=$(mktemp), EB
