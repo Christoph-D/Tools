@@ -26,6 +26,11 @@ add_changebars() {
     rm "$old" "$new"
 }
 
+add_diff_notice() {
+    local notice="(differences to $(git rev-parse --short "$old_rev") marked)"
+    sed -i 's!\\newcommand{\\VCDiff}{}!\\newcommand{\\VCDiff}{'"$notice"'}!' "$1"
+}
+
 restore_file() {
     file=$1
     git checkout -- "$file"
@@ -107,6 +112,7 @@ for f in "${files[@]}"; do
     echo "Adding changebars to $git_prefix$f"
     add_changebars "$f"
 done
+add_diff_notice "$main_file"
 
 trap restore_files EXIT
 
