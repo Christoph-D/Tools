@@ -19,12 +19,11 @@ fi
 
 old_rev=$1
 new_rev=HEAD
-
 main_file=$2
 
 # Returns 0 if the file exists and it has no uncommitted changes.
 is_clean() {
-    [[ -f $1 && ! $(git status --porcelain "$1") ]]
+    [[ -f $1 && ! $(git status --porcelain "$1" 2>&1) ]]
 }
 
 # Adds changebars to the given file. Requires the global variables
@@ -44,12 +43,18 @@ add_diff_notice() {
     sed -i 's!\\newcommand{\\VCDiff}{}!\\newcommand{\\VCDiff}{'"$notice"'}!' "$1"
 }
 
-restore_file() {
-    file=$1
-    git checkout -- "$file"
-    # The changebar commands in the aux files would cause errors on a
-    # normal pdflatex run, so delete them.
-    [[ ! $file =~ \.tex$ ]] || rm -f "${file%.tex}.aux"
+# Brings all files back to a pristine state.
+restore_files() {
+    echo -n "Restoring files..."
+    for f in "${files[@]}"; do
+        git checkout -- "$f"
+        # The changebar commands in the aux files would cause errors on a
+        # normal pdflatex run, so delete them.
+        [[ ! $f =~ \.tex$ ]] || rm -f "${f%.tex}.aux"
+    done
+    # Also remove a possibly outdated bibtex file.
+    rm -f "${main_file%.tex}.bbl"
+    echo 'done'
 }
 
 # We need a dirname that returns the empty string if there is no / in
@@ -109,14 +114,6 @@ make_pdf() {
         fi
     done
     echo "Successfully created ${main_file%.tex}.pdf with changebars."
-}
-
-restore_files() {
-    echo -n "Restoring files..."
-    for f in "${files[@]}"; do
-        restore_file "$f"
-    done
-    echo 'done'
 }
 
 # We want to work in the directory of the master file.
