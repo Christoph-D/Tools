@@ -2,7 +2,10 @@
 
 if [[ $# -ne 2 ]]; then
     echo "Usage: $0 <treeish> <master_file.tex>"
-    echo "Generates a pdf with bars highlighting the changes between <treeish> and HEAD."
+    echo 'Generates a pdf with bars highlighting the changes between <treeish> and HEAD.'
+    echo 
+    echo 'This script comes WITHOUT ANY WARRANTY.'
+    echo 'Please backup your work before you try it.'
     exit 0
 fi
 
