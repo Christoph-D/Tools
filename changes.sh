@@ -45,6 +45,7 @@ add_diff_notice() {
 
 # Brings all files back to a pristine state.
 restore_files() {
+    echo
     echo -n "Restoring files..."
     for f in "${files[@]}"; do
         git checkout -- "$f"
@@ -55,6 +56,7 @@ restore_files() {
     # Also remove a possibly outdated bibtex file.
     rm -f "${main_file%.tex}.bbl"
     echo 'done'
+    run_pdflatex 3
 }
 
 # We need a dirname that returns the empty string if there is no / in
@@ -95,10 +97,10 @@ find_git_prefix() {
     [[ $result ]] && echo / || echo
 }
 
-# Runs pdflatex several times. Also calls bibtex once.
-make_pdf() {
-    local n=6 i
-    for (( i=1; i <= n; ++i )); do
+# Runs pdflatex $1 times on the master file. Also calls bibtex once.
+run_pdflatex() {
+    local n=$1 i
+    for (( i=1; i <= $n; ++i )); do
         if [[ $i -eq 2 ]]; then
             echo -n "Calling bibtex..."
             bibtex "${main_file%.tex}" &>/dev/null
@@ -113,7 +115,12 @@ make_pdf() {
             exit 1
         fi
     done
-    echo "Successfully created ${main_file%.tex}.pdf with changebars."
+}
+
+make_changebar_pdf() {
+    run_pdflatex 6
+    mv "${main_file%.tex}.pdf" "${main_file%.tex}_diff.pdf"
+    echo "Successfully created ${main_file%.tex}_diff.pdf with changebars."
 }
 
 # We want to work in the directory of the master file.
@@ -144,7 +151,8 @@ for f in "${files[@]}"; do
     add_changebars "$f"
 done
 add_diff_notice "$main_file"
+echo
 
 trap restore_files EXIT
 
-make_pdf
+make_changebar_pdf
