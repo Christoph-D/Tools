@@ -6,6 +6,14 @@ if [[ $# -ne 2 ]]; then
     exit 0
 fi
 
+chbar=/texlive/2010/texmf-dist/doc/latex/changebar/chbar.sh
+
+if [[ ! -x $chbar ]]; then
+    echo "Fatal: $chbar does not exist or is not executable."
+    echo 'Please change the variable chbar in this script.'
+    exit 1
+fi
+
 old_rev=$1
 new_rev=HEAD
 
@@ -22,7 +30,7 @@ add_changebars() {
     local new=$(mktemp)
     git show $old_rev:$git_prefix$file > "$old"
     git show $new_rev:$git_prefix$file > "$new"
-    /texlive/2010/texmf-dist/doc/latex/changebar/chbar.sh "$old" "$new" > "$file"
+    "$chbar" "$old" "$new" > "$file"
     rm "$old" "$new"
 }
 
