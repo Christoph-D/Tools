@@ -61,16 +61,25 @@ find_git_prefix() {
 }
 
 make_pdf() {
-    local n=6, i
+    local n=6 i
     for (( i=1; i <= n; ++i )); do
         echo -n "pdflatex run #$i of $n..."
-        if pdflatex -halt-on-error "$main_file" &>/dev/null; then
+        if pdflatex -shell-escape -halt-on-error "$main_file" &>/dev/null; then
             echo 'done'
         else
             echo 'failed'
+            exit 1
         fi
     done
-    echo "Successfully created ${main_file%.tex}.pdf."
+    echo "Successfully created ${main_file%.tex}.pdf with changebars."
+}
+
+restore_files() {
+    echo -n "Restoring files..."
+    for f in "${files[@]}"; do
+        restore_file "$f"
+    done
+    echo 'done'
 }
 
 cd "$(dirname "$main_file")" || exit 1
@@ -95,15 +104,10 @@ for f in "${files[@]}"; do
 done
 
 for f in "${files[@]}"; do
-    echo -n "Adding changebars to $git_prefix$f..."
+    echo "Adding changebars to $git_prefix$f"
     add_changebars "$f"
-    echo 'done'
 done
+
+trap restore_files EXIT
 
 make_pdf
-
-echo -n "Restoring files..."
-for f in "${files[@]}"; do
-    restore_file "$f"
-done
-echo 'done'
