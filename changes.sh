@@ -32,11 +32,9 @@ is_clean() {
 add_changebars() {
     local file=$1
     local old=$(mktemp)
-    local new=$(mktemp)
     git show $old_rev:$git_prefix$file > "$old"
-    git show $new_rev:$git_prefix$file > "$new"
-    "$chbar" "$old" "$new" > "$file"
-    rm "$old" "$new"
+    git show $new_rev:$git_prefix$file | "$chbar" "$old" > "$file"
+    rm "$old"
 }
 
 # Updates the definition of \VCDiff in the given file. Requires the
