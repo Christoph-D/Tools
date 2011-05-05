@@ -21,6 +21,55 @@ old_rev=$1
 new_rev=HEAD
 main_file=$2
 
+# Moves changebars so that they are not inside unsafe environments
+# like formulas.
+fix_changebars() {
+    local unsafe_environments=( align 'align*' figure )
+    local env=( )
+    local buffer= start= end= check_buffer=
+    local old_IFS=$IFS
+    IFS=$'\n'
+    while read -r line; do
+        for e in "${unsafe_environments[@]}"; do
+            local regex="\begin{$e}"
+            if [[ $line =~ "$regex" ]]; then
+                if [[ ${#env[@]} -ne 0 ]]; then
+                    env=( "$e" "${env[@]}" )
+                else
+                    env=( "$e" )
+                fi
+                break
+            fi
+        done
+        local regex='\end{'${env[0]}'}'
+        if [[ $line =~ "$regex" ]]; then
+            if [[ ${#env[@]} -ne 0 ]]; then
+                check_buffer=1
+            else
+                echo 'Warning: Very complex nesting of environments. Wrong changebars are likely to occur.' 1>&2
+            fi
+        fi
+        if [[ ${#env[@]} -ne 0 ]]; then
+            if [[ $line = '\cbstart{}%' ]]; then
+                start=$line$'\n'
+            elif [[ $line = '\cbend{}%' ]]; then
+                end=$line$'\n'
+            else
+                buffer+=$line$'\n'
+            fi
+        fi
+        if [[ $check_buffer = 1 ]]; then
+            printf '%s%s%s' "$start" "$buffer" "$end"
+            env=( "${env[@]:1}" )
+            check_buffer= buffer= start= end=
+        elif [[ ${#env[@]} -eq 0 ]]; then
+            printf '%s\n' "$line"
+        fi
+    done
+    printf '%s%s%s' "$start" "$buffer" "$end"
+    IFS=$old_IFS
+}
+
 # Returns 0 if the file exists and it has no uncommitted changes.
 is_clean() {
     [[ -f $1 && ! $(git status --porcelain "$1" 2>&1) ]]
@@ -30,10 +79,11 @@ is_clean() {
 # git_prefix, old_rev and new_rev.
 add_changebars() {
     local file=$1
-    local old=$(mktemp)
-    git show $old_rev:$git_prefix$file > "$old"
-    git show $new_rev:$git_prefix$file | "$chbar" "$old" > "$file"
-    rm "$old"
+    local tmp=$(mktemp)
+    git show $old_rev:$git_prefix$file > "$file"
+    git show $new_rev:$git_prefix$file | "$chbar" "$file" > "$tmp"
+    fix_changebars < "$tmp" > "$file"
+    rm "$tmp"
 }
 
 # Updates the definition of \VCDiff in the given file. Requires the
