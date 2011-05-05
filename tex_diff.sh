@@ -169,8 +169,9 @@ run_pdflatex() {
 
 make_changebar_pdf() {
     run_pdflatex 6
-    mv "${main_file%.tex}.pdf" "${main_file%.tex}_diff.pdf"
-    echo "Successfully created ${main_file%.tex}_diff.pdf with changebars."
+    target_file="${main_file%.tex}_diff_$(git rev-parse --short "$new_rev")_$(git rev-parse --short "$old_rev").pdf"
+    mv "${main_file%.tex}.pdf" "$target_file"
+    echo "Successfully created $target_file with changebars."
 }
 
 # We want to work in the directory of the master file.
