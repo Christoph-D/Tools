@@ -89,7 +89,7 @@ add_changebars() {
 # Updates the definition of \VCDiff in the given file. Requires the
 # global variable old_rev.
 add_diff_notice() {
-    local notice="(differences to $(git rev-parse --short "$old_rev") marked)"
+    local notice="(differences to $(git rev-parse --short "$old_rev") are highlighted)"
     sed -i 's!\\newcommand{\\VCDiff}{}!\\newcommand{\\VCDiff}{'"$notice"'}!' "$1"
 }
 
