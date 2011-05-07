@@ -51,7 +51,8 @@ fix_changebars() {
         fi
         if [[ ${#env[@]} -ne 0 ]]; then
             if [[ $line = '\cbstart{}%' ]]; then
-                start=$line$'\n'
+                [[ $end && ! $start ]] || start=$line$'\n'
+                end=
             elif [[ $line = '\cbend{}%' ]]; then
                 end=$line$'\n'
             else
