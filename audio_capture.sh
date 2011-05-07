@@ -9,7 +9,7 @@
 
 set -e -u -m
 
-capture_dir=$HOME/audio_clips
+capture_dir=${capture_dir-$HOME/audio_clips}
 lock_file="$capture_dir/.audio_capture.lock"
 event_file="$capture_dir/.audio_capture.event"
 
