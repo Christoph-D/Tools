@@ -12,7 +12,7 @@ escape_for_grep() {
 }
 
 check_checksum() { (
-    cd "$1"
+    cd "$1" || exit
     cfv -f .md5 || exit
     unknown=
     while IFS= read -d '' -r filename; do
@@ -27,7 +27,7 @@ check_checksum() { (
 ) }
 
 create_checksum() { (
-    cd "$1"
+    cd "$1" || exit
     cfv -C -tmd5 -f .md5
 ) }
 
