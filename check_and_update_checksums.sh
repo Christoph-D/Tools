@@ -15,7 +15,7 @@ check_checksum() { (
     cd "$1"
     cfv -f .md5 || exit
     unknown=
-    while read -d '' -r filename; do
+    while IFS= read -d '' -r filename; do
         filename=$(basename "$filename")
         [[ $filename != .md5 ]] || continue
         if ! grep -q " \*$(escape_for_grep "$filename")$" .md5; then
@@ -41,7 +41,7 @@ read -p '** Proceed? [Yn]' answer
 
 error=
 missing=
-while read -d '' -r dir; do
+while IFS= read -d '' -r dir; do
     echo -e "\n** Checking $dir"
     if [[ -s $dir/.md5 ]]; then
         if ! check_checksum "$dir"; then
