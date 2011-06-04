@@ -61,7 +61,7 @@ while IFS= read -d '' -r dir; do
         create_checksum "$dir"
         echo "** Finished generating checksums for $dir"
     fi
-done < <(find "$base" -maxdepth 1 -type d -print0)
+done < <(find "$base" -type d -print0)
 
 echo
 if [[ $error ]]; then
