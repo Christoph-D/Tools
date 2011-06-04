@@ -43,6 +43,19 @@ if [[ $base = --nocheck ]]; then
     nocheck=1
 fi
 
+if [[ ! -d $base || ( $# -ne 1 && $# -ne 0 ) ]]; then
+    echo "Usage: $(basename "$0") [--nocheck] [directory]"
+    echo '
+Verifies and updates checksum files recursively starting from the
+given directory. If no directory is given, start from the current
+directory.
+
+With --nocheck no checksums are verified, only existence of files is
+checked. In this mode checksum files may still be updated if files or
+checksums are missing.'
+    exit 0
+fi
+
 if [[ $nocheck ]]; then
     printf '** Will check for missing files and missing checkums starting from %s\n' "$base"
     echo '** The checksums themselves will *not* be verified!'
