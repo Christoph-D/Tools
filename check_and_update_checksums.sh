@@ -13,7 +13,11 @@ escape_for_grep() {
 
 check_checksum() { (
     cd "$1" || exit
-    cfv -f .md5 || exit
+    if [[ $nocheck ]]; then
+        cfv -m -f .md5 || exit
+    else
+        cfv -f .md5 || exit
+    fi
     unknown=
     while IFS= read -d '' -r filename; do
         filename=$(basename "$filename")
@@ -32,8 +36,19 @@ create_checksum() { (
 ) }
 
 base=${1-.}
+nocheck=
+if [[ $base = --nocheck ]]; then
+    shift
+    base=${1-.}
+    nocheck=1
+fi
 
-printf '** Will check all checksums starting from %s\n' "$base"
+if [[ $nocheck ]]; then
+    printf '** Will check for missing files and missing checkums starting from %s\n' "$base"
+    echo '** The checksums themselves will *not* be verified!'
+else
+    printf '** Will verify all checksums starting from %s\n' "$base"
+fi
 echo '** Missing checksums will be generated automatically.'
 read -p '** Proceed? [Yn]' answer
 
