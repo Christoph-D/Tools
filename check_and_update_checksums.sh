@@ -11,6 +11,10 @@ escape_for_grep() {
     printf '%s\n' "$a"
 }
 
+contains_files() {
+    [[ $(find "$1" -maxdepth 1 -type f -printf . -quit) ]]
+}
+
 check_checksum() { (
     cd "$1" || exit
     if [[ $nocheck ]]; then
@@ -71,6 +75,7 @@ error=
 missing=
 while IFS= read -d '' -r dir; do
     echo -e "\n** Checking $dir"
+    contains_files "$dir" || { echo 'No files to check.'; continue; }
     if [[ -s $dir/.md5 ]]; then
         if ! check_checksum "$dir"; then
             error=1
