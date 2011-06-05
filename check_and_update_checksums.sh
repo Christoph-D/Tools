@@ -76,7 +76,9 @@ missing=
 while IFS= read -d '' -r dir; do
     echo -e "\n** Checking $dir"
     contains_files "$dir" || { echo 'No files to check.'; continue; }
-    if [[ -s $dir/.md5 ]]; then
+    # Remove empty .md5 file
+    [[ ! -f $dir/.md5 || -s $dir/.md5 ]] || rm "$dir/.md5"
+    if [[ -f $dir/.md5 ]]; then
         if ! check_checksum "$dir"; then
             error=1
             echo "** Checksum error in $dir"
