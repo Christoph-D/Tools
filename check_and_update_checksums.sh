@@ -85,9 +85,19 @@ while IFS= read -d '' -r dir; do
             read -u 1 -p "** Regenerate checkums for this directory? [Yn]" answer
             if [[ ! $answer || $answer = y || $answer = Y ]]; then
                 echo "** Regenerating checksums..."
-                rm "$dir/.md5"
+                old_md5=$(mktemp)
+                mv "$dir/.md5" "$old_md5"
                 create_checksum "$dir"
                 echo "** Finished regenerating checksums for $dir"
+                mv "$old_md5" "$dir/.md5_old"
+                diff "$dir/.md5_old" "$dir/.md5"
+                read -u 1 -p "** Remove old .md5 file? [Yn]" answer
+                if [[ ! $answer || $answer = y || $answer = Y ]]; then
+                    rm "$dir/.md5_old"
+                    echo "** Removed old .md5 file."
+                else
+                    echo "** Keeping $dir/.md5_old"
+                fi
             fi
         fi
     else
