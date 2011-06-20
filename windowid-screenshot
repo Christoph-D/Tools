@@ -24,7 +24,7 @@ if ! import -silent -window "$WINDOW_ID" 1.png; then
     exit 1
 fi
 
-convert 1.png -resize 400x300 1_small.png
+convert 1.png -resize 600x300 1_small.png
 
 gimp_code() {
     echo '(let* ((image (car (gimp-file-load RUN-NONINTERACTIVE "'"$1"'" "'"$1"'")))
