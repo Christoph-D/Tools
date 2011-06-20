@@ -28,8 +28,8 @@ get_position() {
 reencode() {
     local SOURCE_FILE="$1"
     if [[ "$(readlink -f "$(dirname "$SOURCE_FILE")")" = "$(pwd)" ]]; then
-        echo "* Error: $SOURCE_FILE resides in the current directory."
-        echo "  This will likely cause collisions with the result file. Aborting."
+        echo "* Error: $SOURCE_FILE is in the current directory."
+        echo "  This will likely cause collisions with the target file. Aborting."
         exit 1
     elif [[ ! -s $SOURCE_FILE ]]; then
         echo "* Warning: $SOURCE_FILE not found. Skipping..."
