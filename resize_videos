@@ -52,6 +52,7 @@ reencode() {
         mplayer -vo yuv4mpeg:file="$TMP_SOURCE_FILE" \
             -vf scale="$NEW_SIZE" -nosound -slave -quiet -benchmark "$SOURCE_FILE" 2>/dev/null
     )
+    echo "Working in: $TMP_DIR"
     x264 --tune animation --preset medium --crf 20 --threads auto \
         --output "$TMP_RESULT_FILE" "$TMP_SOURCE_FILE" &>/dev/null &
 
