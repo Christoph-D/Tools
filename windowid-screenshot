@@ -44,6 +44,6 @@ gimp_code() {
 gimp -i -b "
     $(gimp_code "$i.png")
     $(gimp_code "${i}_small.png")
-    (gimp-quit 0)"
+    (gimp-quit 0)" &>/dev/null
 
 exit 0
