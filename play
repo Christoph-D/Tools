@@ -54,7 +54,13 @@ extract_segment() {
 
 mode=screenshot
 start=
+target_size=
 while read -r line; do
+    target_size_temp=$(printf '%s' "$line" | sed 's/^VO: \[[^]]*\] [0-9]\+x[0-9]\+ => \([0-9]\+x[0-9]\+\) .*$/\1/;t;d')
+    if [[ $target_size_temp ]]; then
+        echo "Target size for screenshots is $target_size_temp."
+        target_size="-s $target_size_temp"
+    fi
     time=$(printf '%s' "$line" | sed 's/^ANS_TIME_POSITION=\(.*\)$/\1/;t;d')
     switch_mode=$(printf '%s' "$line" | sed 's/^ANS_PERCENT_POSITION=\(.*\)$/\1/;t;d')
     [[ $time || $switch_mode ]] || continue
@@ -75,7 +81,7 @@ while read -r line; do
     if [[ $mode = screenshot ]]; then
         target=$(next_file screen png)
         echo "Saving screenshot at time ${time}s..."
-        if ffmpeg -ss "$time" -vframes 1 -i "$1" "$screenshot_dir/$target" &>/dev/null; then
+        if ffmpeg -ss "$time" -vframes 1 -i "$1" $target_size "$screenshot_dir/$target" &>/dev/null; then
             echo "Saved screenshot: $screenshot_dir/$target"
         else
             echo "Could not save screenshot. An error occured."
