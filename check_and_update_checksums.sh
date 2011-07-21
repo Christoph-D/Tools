@@ -41,14 +41,24 @@ create_checksum() { (
 
 base=${1-.}
 nocheck=
-if [[ $base = --nocheck ]]; then
-    shift
-    base=${1-.}
-    nocheck=1
-fi
+nogenerate=
+while [[ $# -gt 0 ]]; do
+    if [[ $base = --nocheck ]]; then
+        shift
+        base=${1-.}
+        nocheck=1
+    elif [[ $base = --nogenerate ]]; then
+        shift
+        base=${1-.}
+        nogenerate=1
+    else
+        shift
+        break
+    fi
+done
 
-if [[ ! -d $base || ( $# -ne 1 && $# -ne 0 ) ]]; then
-    echo "Usage: $(basename "$0") [--nocheck] [directory]"
+if [[ ! -d $base || $# -ne 0 ]]; then
+    echo "Usage: $(basename "$0") [--nocheck] [--nogenerate] [directory]"
     echo '
 Verifies and updates checksum files recursively starting from the
 given directory. If no directory is given, start from the current
@@ -56,7 +66,10 @@ directory.
 
 With --nocheck no checksums are verified, only existence of files is
 checked. In this mode checksum files may still be updated if files or
-checksums are missing.'
+checksums are missing.
+
+With --nogenerate no checksum files will be generated or modified.
+This is the read-only mode.'
     exit 0
 fi
 
@@ -66,7 +79,12 @@ if [[ $nocheck ]]; then
 else
     printf '** Will verify all checksums starting from %s\n' "$base"
 fi
-echo '** Missing checksums will be generated automatically.'
+if [[ $nogenerate ]]; then
+    echo '** Missing or wrong checksums will *not* be generated or fixed.'
+    echo '** This is the read-only mode.'
+else
+    echo '** Missing checksums will be generated automatically.'
+fi
 read -p '** Proceed? [Yn]' answer
 
 [[ ! $answer || $answer = y || $answer = Y ]] || exit 1
@@ -76,12 +94,21 @@ missing=
 while IFS= read -d '' -r dir; do
     echo -e "\n** Checking $dir"
     contains_files "$dir" || { echo 'No files to check.'; continue; }
-    # Remove empty .md5 file
-    [[ ! -f $dir/.md5 || -s $dir/.md5 ]] || rm "$dir/.md5"
+    # Remove empty .md5 file or skip this directory in read-only mode.
+    if [[ -f $dir/.md5 && ! -s $dir/.md5 ]]; then
+        if [[ $nogenerate ]]; then
+            continue
+        else
+            rm "$dir/.md5"
+        fi
+    fi
     if [[ -f $dir/.md5 ]]; then
         if ! check_checksum "$dir"; then
             error=1
             echo "** Checksum error in $dir"
+            if [[ $nogenerate ]]; then
+                continue
+            fi
             read -u 1 -p "** Regenerate checkums for this directory? [Yn]" answer
             if [[ ! $answer || $answer = y || $answer = Y ]]; then
                 echo "** Regenerating checksums..."
@@ -102,6 +129,10 @@ while IFS= read -d '' -r dir; do
         fi
     else
         missing=1
+        if [[ $nogenerate ]]; then
+            echo '** No checksum file found.'
+            continue
+        fi
         echo '** No checksum file found. Generating new checksums...'
         create_checksum "$dir"
         echo "** Finished generating checksums for $dir"
@@ -115,7 +146,7 @@ else
     echo '** No errors were encountered.'
 fi
 
-if [[ $missing ]]; then
+if [[ $missing && ! $nogenerate ]]; then
     echo '** Generated some missing checksum files.'
 fi
 
