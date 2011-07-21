@@ -92,8 +92,7 @@ read -p '** Proceed? [Yn]' answer
 error=
 missing=
 while IFS= read -d '' -r dir; do
-    echo -e "\n** Checking $dir"
-    contains_files "$dir" || { echo 'No files to check.'; continue; }
+    contains_files "$dir" || continue
     # Remove empty .md5 file or skip this directory in read-only mode.
     if [[ -f $dir/.md5 && ! -s $dir/.md5 ]]; then
         if [[ $nogenerate ]]; then
@@ -103,6 +102,7 @@ while IFS= read -d '' -r dir; do
         fi
     fi
     if [[ -f $dir/.md5 ]]; then
+        echo -e "\n** Checking $dir"
         if ! check_checksum "$dir"; then
             error=1
             echo "** Checksum error in $dir"
@@ -130,9 +130,9 @@ while IFS= read -d '' -r dir; do
     else
         missing=1
         if [[ $nogenerate ]]; then
-            echo '** No checksum file found.'
             continue
         fi
+        echo -e "\n** Checking $dir"
         echo '** No checksum file found. Generating new checksums...'
         create_checksum "$dir"
         echo "** Finished generating checksums for $dir"
