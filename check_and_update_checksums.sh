@@ -81,7 +81,7 @@ else
 fi
 if [[ $nogenerate ]]; then
     echo '** Missing or wrong checksums will *not* be generated or fixed.'
-    echo '** This is the read-only mode.'
+    echo '** This is the read-only mode. Directories containing no checksum file will not be mentioned at all.'
 else
     echo '** Missing checksums will be generated automatically.'
 fi
