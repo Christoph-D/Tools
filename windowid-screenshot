@@ -24,8 +24,28 @@ while [[ -f $i.png || -f ${i}_small.png ]]; do
     let ++i
 done
 
-if ! import -silent -window "$WINDOW_ID" $i.png; then
-    echo "Import failed. Invalid window ID?"
+import_window() {
+    if ! import -silent -window "$1" "$2"; then
+        echo "Import failed. Invalid window ID?"
+        exit 1
+    fi
+}
+too_small() {
+    [[ $(du -b "$1" | cut -f 1) -lt 4096 ]]
+}
+
+tries=6
+while :; do
+    let --tries
+    import_window "$WINDOW_ID" "$i.png"
+    if ! too_small "$i.png" || [[ $tries -eq 0 ]]; then
+        break
+    fi
+    echo "Import seems to have failed. Will try again ($tries tries remaining)..."
+    sleep 0.1
+done
+if too_small "$i.png"; then
+    echo "Import does not seem to succeed. Sorry about that."
     exit 1
 fi
 
