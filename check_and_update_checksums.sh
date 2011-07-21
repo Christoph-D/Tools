@@ -31,7 +31,7 @@ check_checksum() { (
             printf 'Missing checksum for: %s\n' "$dir/$filename"
         fi
     done < <(find . -maxdepth 1 -type f -print0)
-    [[ ! $unknown ]]
+    [[ ! $unknown || $nogenerate ]]
 ) }
 
 create_checksum() { (
