@@ -36,7 +36,7 @@ download_topic() {
 }
 
 # Kill jobs on exit
-trap "pgrep -P $$; pkill -P $$" EXIT
+trap "pkill -P $$" EXIT
 
 if [[ $# -eq 1 && $1 =~ ^http.* ]]; then
     download_topic "$1"
