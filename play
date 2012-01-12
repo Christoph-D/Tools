@@ -5,8 +5,9 @@ set -e -u
 if [[ $# -ne 1 ]]; then
     echo "Usage: ${0##*/} <video-file>"
     echo "Press 's' during playback to save a screenshot. Works with -vo vdpau."
-    echo "If nothing happens when you press 's', you may want to add the following line to ~/.mplayer/input.conf:"
+    echo "If nothing happens when you press 's', you may want to add the following lines to ~/.mplayer/input.conf:"
     echo "s get_time_pos"
+    echo "a get_percent_pos"
     exit 0
 fi
 
@@ -103,6 +104,6 @@ while read -r line; do
             start=
         fi
     fi
-done < <(/usr/bin/mplayer "$1")
+done < <(/usr/bin/mplayer -quiet "$1")
 
 exit 0
