@@ -2,10 +2,10 @@
 # Copyright: Christoph Dittmann <github@christoph-d.de>
 # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
 #
-# This script takes a screenshot of a window. It saves the screenshots
-# as 1.png, 1_small_A.png and 1_small_B.png. 1.png is the original,
-# the smaller versions are created using different scale filters. The
-# aspect ratio is assumed to be 4:3.
+# This script takes a screenshot of a window.  It saves the
+# screenshots as N.png and N_small.png, where N is the least positive
+# integer so that no file will be overwritten.  N.png is the original,
+# the other file is a smaller version.
 # 
 # The scaled down versions are suitable for Anki cards.
 
