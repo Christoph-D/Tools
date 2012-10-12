@@ -54,19 +54,6 @@ fi
 
 echo "Filename: $i.png ${i}_small.png"
 
-convert $i.png -resize 600x300 ${i}_small.png
-
-gimp_code() {
-    echo '(let* ((image (car (gimp-file-load RUN-NONINTERACTIVE "'"$1"'" "'"$1"'")))
-          (drawable (car (gimp-image-get-active-layer image))))
-     (gimp-file-save RUN-NONINTERACTIVE image drawable "'"$1"'" "'"$1"'")
-     (gimp-image-delete image))'
-}
-
-# Make the image file a lot smaller
-gimp -i -b "
-    $(gimp_code "$i.png")
-    $(gimp_code "${i}_small.png")
-    (gimp-quit 0)" &>/dev/null
+convert $i.png -resize 600x300 -quality 99 ${i}_small.png
 
 exit 0
