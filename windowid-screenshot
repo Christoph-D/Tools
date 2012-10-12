@@ -17,6 +17,9 @@ if [[ $# -ne 1 ]]; then
     echo "Window id: $WINDOW_ID"
 else
     WINDOW_ID="$1"
+    if [[ $WINDOW_ID = '--foreground-window' ]]; then
+        WINDOW_ID=$(xdotool getwindowfocus)
+    fi
 fi
 
 i=1
