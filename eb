@@ -12,7 +12,7 @@ PATTERN=${2//\"/}
 MAXHITS=${3-50}
 
 eb() {
-    local RESULT=$(mktemp), EB
+    local RESULT=$(mktemp) EB
     coproc EB { eblook "$DICTIONARY" >"$RESULT"; }
 
     # Send the commands to eblook
