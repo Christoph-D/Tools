@@ -16,37 +16,69 @@ contains_files() {
 }
 
 check_checksum() { (
-    cd "$1" || exit
-    if [[ $nocheck ]]; then
-        cfv -m -f .md5 || exit
-    else
-        cfv -f .md5 || exit
-    fi
-    unknown=
-    while IFS= read -d '' -r filename; do
-        filename=$(basename "$filename")
-        [[ $filename != .md5 ]] || continue
-        if ! grep -q " \*$(escape_for_grep "$filename")$" .md5; then
-            unknown=1
-            printf 'Missing checksum for: %s\n' "$dir/$filename"
+    cd "$1" || exit 1
+    # Check for missing files.
+    while read -r hash filename; do
+        if [[ ! -f "${filename#\*}" ]]; then
+            printf 'Missing file: %s\n' "$(pwd)/${filename#\*}"
+            if [[ ! $nogenerate ]]; then
+                read -p '** Remove the old checksum? [Yn]' answer <&10
+                if [[ ! $answer || $answer = y || $answer = Y ]]; then
+                    grep -v " $(escape_for_grep "$filename")$" .md5 > .md5_tmp
+                    mv .md5_tmp .md5
+                else
+                    exit 1
+                fi
+            else
+                read -p '** Abort? [Yn]' answer <&10
+                if [[ ! $answer || $answer = y || $answer = Y ]]; then
+                    exit 1
+                fi
+            fi
         fi
-    done < <(find . -maxdepth 1 -type f -print0)
-    [[ ! $unknown || $nogenerate ]]
+    done 10<&1 < .md5
+
+    md5deep -ekbX .md5 -f <(find . -maxdepth 1 -type f ! -name '.md5*') > "$tmpfile"
+    [[ -s "$tmpfile" ]] || exit 0
+    while read -r hash filename; do
+        if [[ ! $nogenerate ]] && ! grep -q " $(escape_for_grep "$filename")$" .md5; then
+            printf 'Adding missing checksum for: %s\n' "$(pwd)/${filename#\*}"
+            printf '%s %s\n' "$hash" "$filename" >> .md5
+        else
+            printf 'Checksum differs for: %s\n' "$(pwd)/${filename#\*}"
+            printf 'New checksum: %s\n' "$hash"
+            if [[ ! $nogenerate ]]; then
+                read -p '** Use the new checksum? [Yn]' answer <&10
+                if [[ ! $answer || $answer = y || $answer = Y ]]; then
+                    grep -v " $(escape_for_grep "$filename")$" .md5 > .md5_tmp
+                    printf '%s %s\n' "$hash" "$filename" >> .md5_tmp
+                    mv .md5_tmp .md5
+                else
+                    exit 1
+                fi
+            else
+                read -p '** Abort? [Yn]' answer <&10
+                if [[ ! $answer || $answer = y || $answer = Y ]]; then
+                    exit 1
+                fi
+            fi
+        fi
+    done 10<&1 < "$tmpfile"
 ) }
 
 create_checksum() { (
-    cd "$1" || exit
-    cfv -C -tmd5 -f .md5
+    cd "$1" || exit 1
+    md5deep -ekbf <(find . -maxdepth 1 -type f ! -name '.md5*') > .md5
 ) }
 
 base=${1-.}
-nocheck=
+maxsize=()
 nogenerate=
 while [[ $# -gt 0 ]]; do
-    if [[ $base = --nocheck ]]; then
-        shift
+    if [[ $base = --max-size ]]; then
+        maxsize=( "-i" "$2" )
+        shift 2
         base=${1-.}
-        nocheck=1
     elif [[ $base = --nogenerate ]]; then
         shift
         base=${1-.}
@@ -58,27 +90,21 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -d $base || $# -ne 0 ]]; then
-    echo "Usage: $(basename "$0") [--nocheck] [--nogenerate] [directory]"
+    echo "Usage: $(basename "$0") [--max-size <size>] [--nogenerate] [directory]"
     echo '
 Verifies and updates checksum files recursively starting from the
 given directory. If no directory is given, start from the current
 directory.
 
-With --nocheck no checksums are verified, only existence of files is
-checked. In this mode checksum files may still be updated if files or
-checksums are missing.
+With --max-size <size> all files larger than the given size are
+ignored.
 
 With --nogenerate no checksum files will be generated or modified.
 This is the read-only mode.'
     exit 0
 fi
 
-if [[ $nocheck ]]; then
-    printf '** Will check for missing files and missing checkums starting from %s\n' "$base"
-    echo '** The checksums themselves will *not* be verified!'
-else
-    printf '** Will verify all checksums starting from %s\n' "$base"
-fi
+printf '** Will verify all checksums starting from %s\n' "$base"
 if [[ $nogenerate ]]; then
     echo '** Missing or wrong checksums will *not* be generated or fixed.'
     echo '** This is the read-only mode. Directories containing no checksum file will not be mentioned at all.'
@@ -86,11 +112,10 @@ else
     echo '** Missing checksums will be generated automatically.'
 fi
 read -p '** Proceed? [Yn]' answer
-
 [[ ! $answer || $answer = y || $answer = Y ]] || exit 1
 
-error=
-missing=
+tmpfile=$(mktemp)
+
 while IFS= read -d '' -r dir; do
     contains_files "$dir" || continue
     # Remove empty .md5 file or skip this directory in read-only mode.
@@ -104,31 +129,11 @@ while IFS= read -d '' -r dir; do
     if [[ -f $dir/.md5 ]]; then
         echo -e "\n** Checking $dir"
         if ! check_checksum "$dir"; then
-            error=1
             echo "** Checksum error in $dir"
-            if [[ $nogenerate ]]; then
-                continue
-            fi
-            read -u 1 -p "** Regenerate checkums for this directory? [Yn]" answer
-            if [[ ! $answer || $answer = y || $answer = Y ]]; then
-                echo "** Regenerating checksums..."
-                old_md5=$(mktemp)
-                mv "$dir/.md5" "$old_md5"
-                create_checksum "$dir"
-                echo "** Finished regenerating checksums for $dir"
-                mv "$old_md5" "$dir/.md5_old"
-                diff "$dir/.md5_old" "$dir/.md5"
-                read -u 1 -p "** Remove old .md5 file? [Yn]" answer
-                if [[ ! $answer || $answer = y || $answer = Y ]]; then
-                    rm "$dir/.md5_old"
-                    echo "** Removed old .md5 file."
-                else
-                    echo "** Keeping $dir/.md5_old"
-                fi
-            fi
+            rm "$tmpfile"
+            exit 1
         fi
     else
-        missing=1
         if [[ $nogenerate ]]; then
             continue
         fi
@@ -139,15 +144,5 @@ while IFS= read -d '' -r dir; do
     fi
 done < <(find "$base" -type d -print0)
 
-echo
-if [[ $error ]]; then
-    echo '** Errors were encountered.'
-else
-    echo '** No errors were encountered.'
-fi
-
-if [[ $missing && ! $nogenerate ]]; then
-    echo '** Generated some missing checksum files.'
-fi
-
+rm "$tmpfile"
 exit 0
