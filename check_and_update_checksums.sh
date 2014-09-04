@@ -22,7 +22,11 @@ check_checksum() { (
         if [[ ! -f "${filename#\*}" ]]; then
             printf 'Missing file: %s\n' "$(pwd)/${filename#\*}"
             if [[ ! $nogenerate ]]; then
-                read -p '** Remove the old checksum? [Yn]' answer <&10
+                if [[ $removemissing ]]; then
+                    answer=y
+                else
+                    read -p '** Remove the old checksum? [Yn]' answer <&10
+                fi
                 if [[ ! $answer || $answer = y || $answer = Y ]]; then
                     grep -v " $(escape_for_grep "$filename")$" .md5 > .md5_tmp
                     mv .md5_tmp .md5
@@ -74,6 +78,7 @@ create_checksum() { (
 base=${1-.}
 maxsize=()
 nogenerate=
+removemissing=
 while [[ $# -gt 0 ]]; do
     if [[ $base = --max-size ]]; then
         maxsize=( "-i" "$2" )
@@ -83,6 +88,10 @@ while [[ $# -gt 0 ]]; do
         shift
         base=${1-.}
         nogenerate=1
+    elif [[ $base = --remove-missing ]]; then
+        shift
+        base=${1-.}
+        removemissing=1
     else
         shift
         break
@@ -90,7 +99,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -d $base || $# -ne 0 ]]; then
-    echo "Usage: $(basename "$0") [--max-size <size>] [--nogenerate] [directory]"
+    echo "Usage: $(basename "$0") [--max-size <size>] [--nogenerate] [--remove-missing] [directory]"
     echo '
 Verifies and updates checksum files recursively starting from the
 given directory. If no directory is given, start from the current
@@ -100,7 +109,10 @@ With --max-size <size> all files larger than the given size are
 ignored.
 
 With --nogenerate no checksum files will be generated or modified.
-This is the read-only mode.'
+This is the read-only mode.
+
+With --remove-missing checksums for missing files are removed
+without asking.'
     exit 0
 fi
 
