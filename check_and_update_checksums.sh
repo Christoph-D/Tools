@@ -11,8 +11,12 @@ escape_for_grep() {
     printf '%s\n' "$a"
 }
 
+find_files() {
+    find "${1-.}" -maxdepth 1 -type f "${minsize[@]}" "${maxsize[@]}" ! -name '.md5*'
+}
+
 contains_files() {
-    [[ $(find "$1" -maxdepth 1 -type f -printf . -quit) ]]
+    [[ -n $(find_files "$1") ]]
 }
 
 check_checksum() { (
@@ -42,7 +46,7 @@ check_checksum() { (
         fi
     done 10<&1 < .md5
 
-    md5deep -ekbX .md5 -f <(find . -maxdepth 1 -type f ! -name '.md5*') > "$tmpfile"
+    md5deep -ekbX .md5 -f <(find_files) > "$tmpfile"
     [[ -s "$tmpfile" ]] || exit 0
     while read -r hash filename; do
         if [[ ! $nogenerate ]] && ! grep -q " $(escape_for_grep "$filename")$" .md5; then
@@ -72,16 +76,21 @@ check_checksum() { (
 
 create_checksum() { (
     cd "$1" || exit 1
-    md5deep -ekbf <(find . -maxdepth 1 -type f ! -name '.md5*') > .md5
+    md5deep -ekbf <(find_files) > .md5
 ) }
 
 base=${1-.}
+minsize=()
 maxsize=()
 nogenerate=
 removemissing=
 while [[ $# -gt 0 ]]; do
-    if [[ $base = --max-size ]]; then
-        maxsize=( "-i" "$2" )
+    if [[ $base = --min-size ]]; then
+        minsize=( -size +"$2" )
+        shift 2
+        base=${1-.}
+    elif [[ $base = --max-size ]]; then
+        maxsize=( -size -"$2" )
         shift 2
         base=${1-.}
     elif [[ $base = --nogenerate ]]; then
@@ -99,20 +108,21 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -d $base || $# -ne 0 ]]; then
-    echo "Usage: $(basename "$0") [--max-size <size>] [--nogenerate] [--remove-missing] [directory]"
+    echo "Usage: $(basename "$0") [--min-size <size>] [--max-size <size>] [--nogenerate] [--remove-missing] [directory]"
     echo '
 Verifies and updates checksum files recursively starting from the
 given directory. If no directory is given, start from the current
 directory.
 
-With --max-size <size> all files larger than the given size are
-ignored.
+With --min-size/--max-size all files smaller/larger than the given
+size are ignored.  Existing checksums of files not meeting the size
+criteria will be removed if --remove-missing is specified.
 
 With --nogenerate no checksum files will be generated or modified.
 This is the read-only mode.
 
-With --remove-missing checksums for missing files are removed
-without asking.'
+With --remove-missing checksums for missing files are removed without
+asking.'
     exit 0
 fi
 
