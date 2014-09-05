@@ -116,7 +116,7 @@ directory.
 
 With --min-size/--max-size all files smaller/larger than the given
 size are ignored.  Existing checksums of files not meeting the size
-criteria will be removed if --remove-missing is specified.
+criteria will not be removed even if --remove-missing is specified.
 
 With --nogenerate no checksum files will be generated or modified.
 This is the read-only mode.
