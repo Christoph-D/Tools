@@ -19,9 +19,8 @@ contains_files() {
     [[ -n $(find_files "$1") ]]
 }
 
-check_checksum() { (
-    cd "$1" || exit 1
-    # Check for missing files.
+check_for_missing_files() {
+    [[ -f .md5 ]] || return 0
     while read -r hash filename; do
         if [[ ! -f "${filename#\*}" ]]; then
             printf 'Missing file: %s\n' "$(pwd)/${filename#\*}"
@@ -45,6 +44,24 @@ check_checksum() { (
             fi
         fi
     done 10<&1 < .md5
+    # Remove empty checksum file
+    [[ -s .md5 && ! $nogenerate ]] || rm .md5
+}
+
+create_checksum() {
+    md5deep -ekbf <(find_files) > .md5
+}
+
+check_and_update_checksum() { (
+    cd "$1" || exit 1
+    check_for_missing_files
+
+    if [[ ! -s .md5 ]]; then
+        [[ ! $nogenerate ]] || exit 0
+        echo '** Empty or no checksum file. Generating new checksums...'
+        create_checksum
+        exit
+    fi
 
     md5deep -ekbX .md5 -f <(find_files) > "$tmpfile"
     [[ -s "$tmpfile" ]] || exit 0
@@ -72,11 +89,6 @@ check_checksum() { (
             fi
         fi
     done 10<&1 < "$tmpfile"
-) }
-
-create_checksum() { (
-    cd "$1" || exit 1
-    md5deep -ekbf <(find_files) > .md5
 ) }
 
 base=${1-.}
@@ -140,29 +152,15 @@ tmpfile=$(mktemp)
 
 while IFS= read -d '' -r dir; do
     contains_files "$dir" || continue
-    # Remove empty .md5 file or skip this directory in read-only mode.
-    if [[ -f $dir/.md5 && ! -s $dir/.md5 ]]; then
-        if [[ $nogenerate ]]; then
-            continue
-        else
-            rm "$dir/.md5"
-        fi
+    # Skip this directory in read-only mode.
+    if [[ -f $dir/.md5 && ! -s $dir/.md5 && $nogenerate ]]; then
+        continue
     fi
-    if [[ -f $dir/.md5 ]]; then
-        echo -e "\n** Checking $dir"
-        if ! check_checksum "$dir"; then
-            echo "** Checksum error in $dir"
-            rm "$tmpfile"
-            exit 1
-        fi
-    else
-        if [[ $nogenerate ]]; then
-            continue
-        fi
-        echo -e "\n** Checking $dir"
-        echo '** No checksum file found. Generating new checksums...'
-        create_checksum "$dir"
-        echo "** Finished generating checksums for $dir"
+    echo -e "\n** Checking $dir"
+    if ! check_and_update_checksum "$dir"; then
+        echo "** Checksum error in $dir"
+        rm "$tmpfile"
+        exit 1
     fi
 done < <(find "$base" -type d -print0)
 
