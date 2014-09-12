@@ -24,7 +24,7 @@ check_for_missing_files() {
     while read -r hash filename; do
         if [[ ! -f "${filename#\*}" ]]; then
             printf 'Missing file: %s\n' "$(pwd)/${filename#\*}"
-            if [[ ! $nogenerate ]]; then
+            if [[ ! $readonly ]]; then
                 if [[ $removemissing ]]; then
                     answer=y
                 else
@@ -45,7 +45,7 @@ check_for_missing_files() {
         fi
     done 10<&1 < .md5
     # Remove empty checksum file
-    [[ -s .md5 && ! $nogenerate ]] || rm .md5
+    [[ -s .md5 || ! $readonly ]] || rm .md5
 }
 
 create_checksum() {
@@ -57,7 +57,7 @@ check_and_update_checksum() { (
     check_for_missing_files
 
     if [[ ! -s .md5 ]]; then
-        [[ ! $nogenerate ]] || exit 0
+        [[ ! $readonly ]] || exit 0
         echo '** Empty or no checksum file. Generating new checksums...'
         create_checksum
         exit
@@ -66,13 +66,21 @@ check_and_update_checksum() { (
     md5deep -ekbX .md5 -f <(find_files) > "$tmpfile"
     [[ -s "$tmpfile" ]] || exit 0
     while read -r hash filename; do
-        if [[ ! $nogenerate ]] && ! grep -q " $(escape_for_grep "$filename")$" .md5; then
-            printf 'Adding missing checksum for: %s\n' "$(pwd)/${filename#\*}"
-            printf '%s %s\n' "$hash" "$filename" >> .md5
+        if ! grep -q " $(escape_for_grep "$filename")$" .md5; then
+            if [[ ! $readonly ]]; then
+                printf 'Adding missing checksum for: %s\n' "$(pwd)/${filename#\*}"
+                printf '%s %s\n' "$hash" "$filename" >> .md5
+            else
+                printf 'Missing checksum for: %s\n' "$(pwd)/${filename#\*}"
+                read -p '** Abort? [yN]' answer <&10
+                if [[ $answer = y || $answer = Y ]]; then
+                    exit 1
+                fi
+            fi
         else
             printf 'Checksum differs for: %s\n' "$(pwd)/${filename#\*}"
             printf 'New checksum: %s\n' "$hash"
-            if [[ ! $nogenerate ]]; then
+            if [[ ! $readonly ]]; then
                 read -p '** Use the new checksum? [Yn]' answer <&10
                 if [[ ! $answer || $answer = y || $answer = Y ]]; then
                     grep -v " $(escape_for_grep "$filename")$" .md5 > .md5_tmp
@@ -82,8 +90,8 @@ check_and_update_checksum() { (
                     exit 1
                 fi
             else
-                read -p '** Abort? [Yn]' answer <&10
-                if [[ ! $answer || $answer = y || $answer = Y ]]; then
+                read -p '** Abort? [yN]' answer <&10
+                if [[ $answer = y || $answer = Y ]]; then
                     exit 1
                 fi
             fi
@@ -94,7 +102,7 @@ check_and_update_checksum() { (
 base=${1-.}
 minsize=()
 maxsize=()
-nogenerate=
+readonly=
 removemissing=
 while [[ $# -gt 0 ]]; do
     if [[ $base = --min-size ]]; then
@@ -105,10 +113,10 @@ while [[ $# -gt 0 ]]; do
         maxsize=( -size -"$2" )
         shift 2
         base=${1-.}
-    elif [[ $base = --nogenerate ]]; then
+    elif [[ $base = --read-only ]]; then
         shift
         base=${1-.}
-        nogenerate=1
+        readonly=1
     elif [[ $base = --remove-missing ]]; then
         shift
         base=${1-.}
@@ -120,7 +128,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -d $base || $# -ne 0 ]]; then
-    echo "Usage: $(basename "$0") [--min-size <size>] [--max-size <size>] [--nogenerate] [--remove-missing] [directory]"
+    echo "Usage: $(basename "$0") [--min-size <size>] [--max-size <size>] [--read-only] [--remove-missing] [directory]"
     echo '
 Verifies and updates checksum files recursively starting from the
 given directory. If no directory is given, start from the current
@@ -130,8 +138,7 @@ With --min-size/--max-size all files smaller/larger than the given
 size are ignored.  Existing checksums of files not meeting the size
 criteria will not be removed even if --remove-missing is specified.
 
-With --nogenerate no checksum files will be generated or modified.
-This is the read-only mode.
+With --read-only no checksum files will be generated or modified.
 
 With --remove-missing checksums for missing files are removed without
 asking.'
@@ -139,9 +146,9 @@ asking.'
 fi
 
 printf '** Will verify all checksums starting from %s\n' "$base"
-if [[ $nogenerate ]]; then
+if [[ $readonly ]]; then
     echo '** Missing or wrong checksums will *not* be generated or fixed.'
-    echo '** This is the read-only mode. Directories containing no checksum file will not be mentioned at all.'
+    echo '** This is the read-only mode.'
 else
     echo '** Missing checksums will be generated automatically.'
 fi
@@ -152,10 +159,6 @@ tmpfile=$(mktemp)
 
 while IFS= read -d '' -r dir; do
     contains_files "$dir" || continue
-    # Skip this directory in read-only mode.
-    if [[ -f $dir/.md5 && ! -s $dir/.md5 && $nogenerate ]]; then
-        continue
-    fi
     echo -e "\n** Checking $dir"
     if ! check_and_update_checksum "$dir"; then
         echo "** Checksum error in $dir"
