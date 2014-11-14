@@ -1,0 +1,52 @@
+#!/bin/bash
+# Based on cronic: http://habilis.net/cronic/
+#
+# Improvements:
+# - use a secure temp directory to avoid data leaks
+# - run the command in a subshell for better isolation
+# - work around a bug in puppet
+
+set -eu
+
+tmpdir=$(mktemp -d --tmpdir cronic.XXXXXXXXXX)
+out="$tmpdir"/cronic.out
+err="$tmpdir"/cronic.err
+trace="$tmpdir"/cronic.trace
+
+set +e
+( "$@" ) > "$out" 2> "$trace"
+exit_status=$?
+set -e
+
+# Separate bash traces from error output.
+trace_prefix="^${PS4:0:1}\\+${PS4:1}"
+if grep --text --quiet "$trace_prefix" "$trace"; then
+    grep --text --invert-match "$trace_prefix" "$trace" > "$err" || true
+else
+    err="$trace" # no trace detected, everything is error output
+fi
+
+# https://tickets.puppetlabs.com/browse/FACT-709
+if [[ ${1##*/} == puppet && $exit_status -eq 0 ]]; then
+    sed -i "\\#can't open /proc/interrupts at /usr/bin/lsdev line 15.#d" "$err"
+fi
+
+if [[ $exit_status -ne 0 || -s "$err" ]]; then
+    echo "Cronic detected failure or error output for the command:"
+    printf '%s\n' "$*"
+    echo
+    echo "EXIT STATUS: $exit_status"
+    echo
+    echo "ERROR OUTPUT:"
+    cat "$err"
+    echo
+    echo "STANDARD OUTPUT:"
+    cat "$out"
+    if [[ $trace != $err ]]; then
+        echo
+        echo "TRACE-ERROR OUTPUT:"
+        cat "$trace"
+    fi
+fi
+
+rm -rf "$tmpdir"
