@@ -3,7 +3,7 @@ purposes.
 
 This repository currently contains the following scripts:
 * bash_snippets.sh
-  Mostly useless stuff and highly experimental code in bash.
+  Mostly useless stuff and experimental bash code.
 * resize_videos
   Usage: resize_videos <height:width> <input files>
 
