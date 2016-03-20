@@ -55,7 +55,7 @@ quit
 's/^$'\xAD\xA9'/$'\xa1\xca\xa3\xb9\xa1\xcb'/\;'
 '                   | iconv -f eucjp -c
         fi
-    done < <(grep -F -m 1 -A $MAXHITS '$$$$' "$RESULT" | \
+    done < <(grep -F -m 1 -A $MAXHITS --text '$$$$' "$RESULT" | \
         sed '
 1s/^\(eblook> \)*\$\$\$\$\(\$\$\$\$\)\?//; # remove the prompt
 s/<reference>/    /;
@@ -64,7 +64,7 @@ s/^<\(prev\|next\)>.*//;
 s/<more[^>]*>/ (...)/;
 s/<[^>]*>//g;
 s/^ *[0-9]\+\. \([0-9:]\+\t\)/\1/;	
-' | grep .)
+' | grep --text .)
     rm "$RESULT"
 }
 
