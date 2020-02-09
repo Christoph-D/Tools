@@ -67,14 +67,14 @@ check_and_update_checksum() { (
 
     md5deep -ekbX .md5 -f <(find_files) > "$tmpfile"
     [[ -s "$tmpfile" ]] || exit 0
-    while read -r hash filename; do
+    while read -u 10 -r hash filename; do
         if ! grep -q " $(escape_for_grep"$filename")\$" .md5; then
             if [[ ! $readonly ]]; then
                 printf 'Adding missing checksum for: %s\n' "$(pwd)/${filename#\*}"
                 printf '%s %s\n' "$hash" "$filename" >> .md5
             else
                 printf 'Missing checksum for: %s\n' "$(pwd)/${filename#\*}"
-                read -r -p '** Abort? [yN]' answer <&10
+                read -r -p '** Abort? [yN]' answer
                 if [[ $answer = y || $answer = Y ]]; then
                     exit 1
                 fi
@@ -83,7 +83,7 @@ check_and_update_checksum() { (
             printf 'Checksum differs for: %s\n' "$(pwd)/${filename#\*}"
             printf 'New checksum: %s\n' "$hash"
             if [[ ! $readonly ]]; then
-                read -r -p '** Use the new checksum? [Yn]' answer <&10
+                read -r -p '** Use the new checksum? [Yn]' answer
                 if [[ ! $answer || $answer = y || $answer = Y ]]; then
                     grep -v " $(escape_for_grep "$filename")\$" .md5 > .md5_tmp
                     printf '%s %s\n' "$hash" "$filename" >> .md5_tmp
@@ -92,13 +92,13 @@ check_and_update_checksum() { (
                     exit 1
                 fi
             else
-                read -r -p '** Abort? [yN]' answer <&10
+                read -r -p '** Abort? [yN]' answer
                 if [[ $answer = y || $answer = Y ]]; then
                     exit 1
                 fi
             fi
         fi
-    done 10<&1 < "$tmpfile"
+    done 10< "$tmpfile"
 ) }
 
 base=${1-.}
@@ -159,7 +159,7 @@ read -r -p '** Proceed? [Yn]' answer
 
 tmpfile=$(mktemp)
 
-while IFS= read -d '' -r dir; do
+while IFS= read -u 10 -d '' -r dir; do
     contains_files "$dir" || continue
     echo -e "\n** Checking $dir"
     if ! check_and_update_checksum "$dir"; then
@@ -167,7 +167,7 @@ while IFS= read -d '' -r dir; do
         rm "$tmpfile"
         exit 1
     fi
-done < <(find "$base" -type d -print0)
+done 10< <(find "$base" -type d -print0)
 
 rm "$tmpfile"
 exit 0
