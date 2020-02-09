@@ -36,6 +36,7 @@ download_topic() {
 }
 
 # Kill jobs on exit
+# shellcheck disable=SC2064
 trap "pkill -P $$" EXIT
 
 if [[ $# -eq 1 && $1 =~ ^http.* ]]; then
@@ -51,7 +52,7 @@ elif [[ $# -gt 0 ]]; then
     exit 0
 fi
 
-while read topic; do
+while read -r topic; do
     echo "Starting download of topic $topic"
     download_topic "http://www.nhk.or.jp/kokokoza/library/$topic"
     echo "Downloads started. Please wait."

@@ -17,12 +17,12 @@ mkdir -p "$capture_dir"
 
 next_file() { (
     cd "$capture_dir"
-    for file in $1???.$2; do last=$file; done
-    if [[ $last = $1\?\?\?.$2 ]]; then
+    for file in "$1"???".$2"; do last=$file; done
+    if [[ $last = "$1???$2" ]]; then
         printf "%s000.%s" "$1" "$2"
     else
         printf "%s%03d.%s" "$1" \
-            $(( 1 + $(echo $last | sed "s/$1\([0-9]*\)\.$2/\1/;s/^0*\(.\)/\1/") )) "$2"
+            $(( 1 + $(echo "$last" | sed "s/$1\([0-9]*\)\.$2/\1/;s/^0*\(.\)/\1/") )) "$2"
     fi
 ) }
 
@@ -35,7 +35,8 @@ watch_mode() { (
     fi
     local capturing=
     while : >"$event_file" && inotifywait -qqe MODIFY "$event_file"; do
-        local event=$(cat "$event_file")
+        local event
+        event=$(cat "$event_file")
         if [[ $event = toggle ]]; then
             if [[ ! $capturing ]]; then
                 capturing=1

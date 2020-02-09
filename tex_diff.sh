@@ -26,13 +26,12 @@ main_file=$2
 fix_changebars() {
     local unsafe_environments=( align 'align*' figure )
     local env=( )
-    local buffer= start= end= check_buffer=
+    local buffer='' start='' end='' check_buffer=''
     local old_IFS=$IFS
     IFS=$'\n'
     while read -r line; do
         for e in "${unsafe_environments[@]}"; do
-            local regex="\begin{$e}"
-            if [[ $line =~ "$regex" ]]; then
+            if [[ $line = *"\\begin{$e}"* ]]; then
                 if [[ ${#env[@]} -ne 0 ]]; then
                     env=( "$e" "${env[@]}" )
                 else
@@ -41,8 +40,7 @@ fix_changebars() {
                 break
             fi
         done
-        local regex='\end{'${env[0]}'}'
-        if [[ $line =~ "$regex" ]]; then
+        if [[ $line = *"\\end{${env[0]}}"* ]]; then
             if [[ ${#env[@]} -ne 0 ]]; then
                 check_buffer=1
             else
@@ -62,7 +60,7 @@ fix_changebars() {
         if [[ $check_buffer = 1 ]]; then
             printf '%s%s%s' "$start" "$buffer" "$end"
             env=( "${env[@]:1}" )
-            check_buffer= buffer= start= end=
+            check_buffer='' buffer='' start='' end=''
         elif [[ ${#env[@]} -eq 0 ]]; then
             printf '%s\n' "$line"
         fi
@@ -79,10 +77,10 @@ is_clean() {
 # Adds changebars to the given file. Requires the global variables
 # git_prefix, old_rev and new_rev.
 add_changebars() {
-    local file=$1
-    local tmp=$(mktemp)
-    git show $old_rev:$git_prefix$file > "$file"
-    git show $new_rev:$git_prefix$file | "$chbar" "$file" > "$tmp"
+    local file=$1 tmp
+    tmp=$(mktemp)
+    git show "$old_rev:$git_prefix$file" > "$file"
+    git show "$new_rev:$git_prefix$file" | "$chbar" "$file" > "$tmp"
     fix_changebars < "$tmp" > "$file"
     rm "$tmp"
 }
@@ -90,7 +88,8 @@ add_changebars() {
 # Updates the definition of \VCDiff in the given file. Requires the
 # global variable old_rev.
 add_diff_notice() {
-    local notice="(differences to $(git rev-parse --short "$old_rev") are highlighted)"
+    local notice
+    notice="(differences to $(git rev-parse --short "$old_rev") are highlighted)"
     sed -i 's!\\newcommand{\\VCDiff}{}!\\newcommand{\\VCDiff}{'"$notice"'}!' "$1"
 }
 
@@ -131,7 +130,8 @@ get_included_files() {
 # paths relative to cwd into paths relative to the root of the git
 # repo.
 find_git_prefix() {
-    local git_root=$(
+    local git_root cwd result
+    git_root=$(
         while [[ ! -d .git && $(pwd) != / ]]; do
             cd ..
         done
@@ -142,8 +142,8 @@ find_git_prefix() {
             exit 1
         fi
     ) || exit 1
-    local cwd=$(pwd)
-    local result=${cwd#$git_root}
+    cwd=$(pwd)
+    result=${cwd#$git_root}
     printf '%s' "${result#/}"
     [[ $result ]] && echo / || echo
 }
@@ -151,7 +151,7 @@ find_git_prefix() {
 # Runs pdflatex $1 times on the master file. Also calls bibtex once.
 run_pdflatex() {
     local n=$1 i
-    for (( i=1; i <= $n; ++i )); do
+    for (( i=1; i <= n; ++i )); do
         if [[ $i -eq 2 ]]; then
             echo -n "Calling bibtex..."
             bibtex "${main_file%.tex}" &>/dev/null

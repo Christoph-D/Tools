@@ -10,7 +10,7 @@ print_callstack() {
     echo '*** stack trace [line function file] ***' >&2
     local I=0
     while caller $I >&2; do
-        let ++I
+        (( ++I ))
     done
     echo '*** end of trace ***' >&2
 }
@@ -28,12 +28,14 @@ echo -e '\n\n* Function "run":'
 # and standard error in $STDERR.
 run() {
     # Prepare
-    local STDOUT_FILE= STDERR_FILE=
-    local OLD_EXIT_TRAP=$(trap -p EXIT | sed 's/^trap -- \(.*\) EXIT$/\1/')
+    local STDOUT_FILE='' STDERR_FILE=''
+    local OLD_EXIT_TRAP
+    OLD_EXIT_TRAP=$(trap -p EXIT | sed 's/^trap -- \(.*\) EXIT$/\1/')
     local TRAP_WAS_SET="${OLD_EXIT_TRAP:0:1}"
     # Unquote $OLD_EXIT_TRAP.
-    OLD_EXIT_TRAP=$(eval printf '%s' $OLD_EXIT_TRAP)
+    OLD_EXIT_TRAP=$(eval printf '%s' "$OLD_EXIT_TRAP")
     # Insert our clean-up function.
+    # shellcheck disable=SC2064
     trap "rm -f '$STDOUT_FILE' '$STDERR_FILE'; $OLD_EXIT_TRAP" EXIT
     STDOUT_FILE=$(mktemp)
     STDERR_FILE=$(mktemp)
@@ -46,7 +48,12 @@ run() {
     STDERR=$(cat "$STDERR_FILE")
     rm -f "$STDOUT_FILE" "$STDERR_FILE"
     # Restore the old EXIT trap.
-    [[ $TRAP_WAS_SET ]] && trap "$OLD_EXIT_TRAP" EXIT || trap EXIT
+    if [[ $TRAP_WAS_SET ]]; then
+        # shellcheck disable=SC2064
+        trap "$OLD_EXIT_TRAP" EXIT
+    else
+        trap EXIT
+    fi
 }
 
 test_run () {

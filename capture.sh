@@ -18,6 +18,7 @@ shift 2
 TMP_DIR=$(mktemp -d)
 
 cd "$TMP_DIR" || exit 1
+# shellcheck disable=SC2064
 trap "rm -rf '$TMP_DIR'" EXIT
 
 declare -a PIDS
@@ -38,19 +39,19 @@ mkfifo capture audio_source video_source video.y4m
 
 glc-play ./capture -y 1 -o - | \
     mplayer -vo yuv4mpeg:file=./video.y4m -vf scale="$WIDTH_HEIGHT" -nosound -benchmark - &>/dev/null &
-PIDS=( ${PIDS[@]} $! )
+PIDS=( "${PIDS[@]}" $! )
 
 #cat audio_source > /dev/null &
-#PIDS=( ${PIDS[@]} $! )
+#PIDS=( "${PIDS[@]}" $! )
 
 #glc-play ./audio_source -a 1 -o - | \
 #    mplayer - &
 #oggenc --output=/tmp/audio.ogg - &
-#PIDS=( ${PIDS[@]} $! )
+#PIDS=( "${PIDS[@]}" $! )
 
 /usr/bin/x264 --tune animation --preset medium --crf 28 --threads auto \
     --output ./r.mp4 ./video.y4m &>/dev/null &
-PIDS=( ${PIDS[@]} $! )
+PIDS=( "${PIDS[@]}" $! )
 
 echo 'Launching program...'
 
@@ -58,15 +59,16 @@ clean_up() {
     echo "Cleaning up..."
     rm -rf "$TMP_DIR"
     exec &>/dev/null
-    for P in ${PIDS[@]}; do kill $P &>/dev/null; done
+    for P in "${PIDS[@]}"; do kill "$P" &>/dev/null; done
     sleep 0.1
-    for P in ${PIDS[@]}; do kill -9 $P &>/dev/null; done
+    for P in "${PIDS[@]}"; do kill -9 "$P" &>/dev/null; done
 }
 trap clean_up EXIT
 
 glc-capture --start -o ./capture --disable-audio "$@" &> /dev/null
 echo 'Waiting for processes to terminate...'
 wait
+# shellcheck disable=SC2064
 trap "rm -rf '$TMP_DIR'" EXIT
 
 rm -f "$RESULT"

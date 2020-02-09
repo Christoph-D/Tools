@@ -22,25 +22,24 @@ contains_files() {
 check_for_missing_files() {
     [[ -f .md5 ]] || return 0
     while read -r hash filename; do
-        if [[ ! -f "${filename#\*}" ]]; then
-            printf 'Missing file: %s\n' "$(pwd)/${filename#\*}"
-            if [[ ! $readonly ]]; then
-                if [[ $removemissing ]]; then
-                    answer=y
-                else
-                    read -p '** Remove the old checksum? [Yn]' answer <&10
-                fi
-                if [[ ! $answer || $answer = y || $answer = Y ]]; then
-                    grep -v " $(escape_for_grep "$filename")$" .md5 > .md5_tmp
-                    mv .md5_tmp .md5
-                else
-                    exit 1
-                fi
+        [[ ! -f "${filename#\*}" ]] || continue
+        printf 'Missing file: %s\n' "$(pwd)/${filename#\*}"
+        if [[ ! $readonly ]]; then
+            if [[ $removemissing ]]; then
+                answer=y
             else
-                read -p '** Abort? [Yn]' answer <&10
-                if [[ ! $answer || $answer = y || $answer = Y ]]; then
-                    exit 1
-                fi
+                read -r -p '** Remove the old checksum? [Yn]' answer <&10
+            fi
+            if [[ ! $answer || $answer = y || $answer = Y ]]; then
+                grep -v " $(escape_for_grep "$filename")\$" .md5 > .md5_tmp
+                mv .md5_tmp .md5
+            else
+                exit 1
+            fi
+        else
+            read -r -p '** Abort? [Yn]' answer <&10
+            if [[ ! $answer || $answer = y || $answer = Y ]]; then
+                exit 1
             fi
         fi
     done 10<&1 < .md5
@@ -66,13 +65,13 @@ check_and_update_checksum() { (
     md5deep -ekbX .md5 -f <(find_files) > "$tmpfile"
     [[ -s "$tmpfile" ]] || exit 0
     while read -r hash filename; do
-        if ! grep -q " $(escape_for_grep "$filename")$" .md5; then
+        if ! grep -q " $(escape_for_grep"$filename")\$" .md5; then
             if [[ ! $readonly ]]; then
                 printf 'Adding missing checksum for: %s\n' "$(pwd)/${filename#\*}"
                 printf '%s %s\n' "$hash" "$filename" >> .md5
             else
                 printf 'Missing checksum for: %s\n' "$(pwd)/${filename#\*}"
-                read -p '** Abort? [yN]' answer <&10
+                read -r -p '** Abort? [yN]' answer <&10
                 if [[ $answer = y || $answer = Y ]]; then
                     exit 1
                 fi
@@ -81,16 +80,16 @@ check_and_update_checksum() { (
             printf 'Checksum differs for: %s\n' "$(pwd)/${filename#\*}"
             printf 'New checksum: %s\n' "$hash"
             if [[ ! $readonly ]]; then
-                read -p '** Use the new checksum? [Yn]' answer <&10
+                read -r -p '** Use the new checksum? [Yn]' answer <&10
                 if [[ ! $answer || $answer = y || $answer = Y ]]; then
-                    grep -v " $(escape_for_grep "$filename")$" .md5 > .md5_tmp
+                    grep -v " $(escape_for_grep "$filename")\$" .md5 > .md5_tmp
                     printf '%s %s\n' "$hash" "$filename" >> .md5_tmp
                     mv .md5_tmp .md5
                 else
                     exit 1
                 fi
             else
-                read -p '** Abort? [yN]' answer <&10
+                read -r -p '** Abort? [yN]' answer <&10
                 if [[ $answer = y || $answer = Y ]]; then
                     exit 1
                 fi
@@ -152,7 +151,7 @@ if [[ $readonly ]]; then
 else
     echo '** Missing checksums will be generated automatically.'
 fi
-read -p '** Proceed? [Yn]' answer
+read -r -p '** Proceed? [Yn]' answer
 [[ ! $answer || $answer = y || $answer = Y ]] || exit 1
 
 tmpfile=$(mktemp)
