@@ -21,14 +21,17 @@ contains_files() {
 
 check_for_missing_files() {
     [[ -f .md5 ]] || return 0
-    while read -r hash filename; do
+    # Load the full file because the loop may modify it.
+    mapfile -t lines < .md5
+    for line in "${lines[@]}"; do
+        read -r hash filename <<< "$line"
         [[ ! -f "${filename#\*}" ]] || continue
         printf 'Missing file: %s\n' "$(pwd)/${filename#\*}"
         if [[ ! $readonly ]]; then
             if [[ $removemissing ]]; then
                 answer=y
             else
-                read -r -p '** Remove the old checksum? [Yn]' answer <&10
+                read -r -p '** Remove the old checksum? [Yn]' answer
             fi
             if [[ ! $answer || $answer = y || $answer = Y ]]; then
                 grep -v " $(escape_for_grep "$filename")\$" .md5 > .md5_tmp
@@ -37,12 +40,12 @@ check_for_missing_files() {
                 exit 1
             fi
         else
-            read -r -p '** Abort? [Yn]' answer <&10
+            read -r -p '** Abort? [Yn]' answer
             if [[ ! $answer || $answer = y || $answer = Y ]]; then
                 exit 1
             fi
         fi
-    done 10<&1 < .md5
+    done
     # Remove empty checksum file
     [[ -s .md5 || ! $readonly ]] || rm .md5
 }
