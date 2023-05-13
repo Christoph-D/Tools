@@ -55,6 +55,7 @@ PIDS=( "${PIDS[@]}" $! )
 
 echo 'Launching program...'
 
+# shellcheck disable=SC2317
 clean_up() {
     echo "Cleaning up..."
     rm -rf "$TMP_DIR"

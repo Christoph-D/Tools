@@ -56,6 +56,7 @@ run() {
     fi
 }
 
+# shellcheck disable=SC2317
 test_run () {
     echo "$1"
     echo "$2" >&2

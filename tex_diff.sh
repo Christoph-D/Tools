@@ -143,7 +143,7 @@ find_git_prefix() {
         fi
     ) || exit 1
     cwd=$(pwd)
-    result=${cwd#$git_root}
+    result=${cwd#"$git_root"}
     printf '%s' "${result#/}"
     [[ $result ]] && echo / || echo
 }
