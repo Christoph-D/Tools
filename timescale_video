@@ -55,10 +55,12 @@ die() {
 get_track_ids() {
     local AUDIO=
     [[ $# -eq 1 && $1 = "audio" ]] && local AUDIO=1
-    local TRACKS=$(mkvinfo-text "$SOURCE" | grep '^|  + Track type: ')
-    local TRACK_IDS=( $(mkvinfo-text "$SOURCE" \
+    local TRACKS
+    TRACKS=$(mkvinfo-text "$SOURCE" | grep '^|  + Track type: ')
+    local TRACK_IDS
+    mapfile -t TRACK_IDS < <(mkvinfo-text "$SOURCE" \
         | grep '^|  + Track number: \([0-9]\+\)$' \
-        | sed 's/.*\([0-9]\+\)/\1/') )
+        | sed 's/.*\([0-9]\+\)/\1/')
     local TIME_CODE_PARAMS=
     local I=0
     # Loop over lines instead of words.
@@ -70,7 +72,7 @@ get_track_ids() {
         else
             [[ -z $AUDIO ]] && echo -n "${TRACK_IDS[$I]} "
         fi
-        let I=$I+1
+        ((I=I+1))
     done
     IFS="$OLD_IFS"
     echo
@@ -158,14 +160,12 @@ echo -n "Remuxing and resyncing ogg file with remaining streams..."
 # for this mkvmerge needs one parameter per track. That's why we
 # extract the track numbers of non-audio tracks and build up the
 # command line manually.
-TIME_CODE_PARAMS=
+declare -a TIME_CODE_PARAMS=()
 for T in $(get_track_ids); do
-    TIME_CODE_PARAMS="$TIME_CODE_PARAMS --sync $T:0,1/$SPEED_FACTOR"
+    TIME_CODE_PARAMS+=("--sync" "$T:0,1/$SPEED_FACTOR")
 done
 
-# Do not quote $TIME_CODE_PARAMS because it needs to split into
-# individual parameters.
-mkvmerge -o "$TARGET" --no-audio $TIME_CODE_PARAMS "$SOURCE" "$AUDIO_TARGET" &> "$LOG_FILE" \
+mkvmerge -o "$TARGET" --no-audio "${TIME_CODE_PARAMS[@]}" "$SOURCE" "$AUDIO_TARGET" &> "$LOG_FILE" \
     || die "Could not remux temporary files!"
 rm -f "$AUDIO_TARGET" "$LOG_FILE"
 [[ -n $VIDEO_TEMP ]] && rm -f "$VIDEO_TEMP"

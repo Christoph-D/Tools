@@ -12,7 +12,8 @@ PATTERN=${2//\"/}
 MAXHITS=${3-50}
 
 eb() {
-    local RESULT=$(mktemp) EB
+    local RESULT
+    RESULT=$(mktemp)
     coproc EB { eblook "$DICTIONARY" >"$RESULT"; }
 
     # Send the commands to eblook
@@ -24,7 +25,7 @@ set max-hits %s
 set prompt "$$$$"
 %s
 quit
-' "$MAXHITS" "$1" "$2" >&${EB[1]}
+' "$MAXHITS" "$1" "$2" >&"${EB[1]}"
     wait
 
     # Warning: ugly code ahead.
@@ -55,7 +56,7 @@ quit
 's/^$'\xAD\xA9'/$'\xa1\xca\xa3\xb9\xa1\xcb'/\;'
 '                   | iconv -f eucjp -c
         fi
-    done < <(grep -F -m 1 -A $MAXHITS --text '$$$$' "$RESULT" | \
+    done < <(grep -F -m 1 -A "$MAXHITS" --text '$$$$' "$RESULT" | \
         sed '
 1s/^\(eblook> \)*\$\$\$\$\(\$\$\$\$\)\?//; # remove the prompt
 s/<reference>/    /;
@@ -88,7 +89,7 @@ else
     NO_RESULT='Too big: 1'
 fi
 
-if [[ $RESULT = $NO_RESULT ]]; then
+if [[ $RESULT = "$NO_RESULT" ]]; then
     echo 'No result.'
 else
     printf '%s\n' "$RESULT"

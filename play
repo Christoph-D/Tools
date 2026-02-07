@@ -17,21 +17,23 @@ mkdir -p "$screenshot_dir"
 
 next_file() { (
     cd "$screenshot_dir"
-    for file in $1???.$2; do last=$file; done
-    if [[ $last = $1\?\?\?.$2 ]]; then
+    for file in "$1"???."$2"; do last=$file; done
+    if [[ $last = "$1"???."$2" ]]; then
         printf "%s000.%s" "$1" "$2"
     else
         printf "%s%03d.%s" "$1" \
-            $(( 1 + $(echo $last | sed "s/$1\([0-9]*\)\.$2/\1/;s/^0*\(.\)/\1/") )) "$2"
+            "$(( 1 + $(echo "$last" | sed "s/$1\([0-9]*\)\.$2/\1/;s/^0*\(.\)/\1/") ))" "$2"
     fi
 ) }
 
 convert_seconds_to_mkvmerge_format() {
     local seconds=$1
-    local hours=$(echo $seconds/3600 | bc)
-    seconds=$(echo $seconds-$hours*3600 | bc)
-    local minutes=$(echo $seconds/60 | bc)
-    seconds=$(echo $seconds-$minutes*60 | bc)
+    local hours
+    hours=$(echo "$seconds"/3600 | bc)
+    seconds=$(echo "$seconds"-"$hours"*3600 | bc)
+    local minutes
+    minutes=$(echo "$seconds"/60 | bc)
+    seconds=$(echo "$seconds"-"$minutes"*60 | bc)
     printf '%02d:%02d:%06.3f\n' "$hours" "$minutes" "$seconds"
 }
 
@@ -39,12 +41,15 @@ extract_segment() {
     local source=$1
     local target=$2
     local ogg_target=${target%.mkv}.ogg
-    local start=$(convert_seconds_to_mkvmerge_format $3)
-    local end=$(convert_seconds_to_mkvmerge_format $4)
+    local start
+    start=$(convert_seconds_to_mkvmerge_format "$3")
+    local end
+    end=$(convert_seconds_to_mkvmerge_format "$4")
 
-    local temp_dir=$(mktemp -d)
+    local temp_dir
+    temp_dir=$(mktemp -d)
     echo -n 'Please wait, extracting segment...'
-    mkvmerge -o "$temp_dir/result.mkv" --split timecodes:$start,$end "$source" >/dev/null
+    mkvmerge -o "$temp_dir/result.mkv" --split timecodes:"$start","$end" "$source" >/dev/null
     mv "$temp_dir/result-002.mkv" "$target"
     echo -n 'reencoding audio...'
     ffmpeg -y -i "$target" "$temp_dir/result.wav" &>/dev/null
@@ -82,7 +87,7 @@ while read -r line; do
     if [[ $mode = screenshot ]]; then
         target=$(next_file screen png)
         echo "Saving screenshot at time ${time}s..."
-        if ffmpeg -ss "$time" -vframes 1 -i "$1" $target_size "$screenshot_dir/$target" &>/dev/null; then
+        if ffmpeg -nostdin -ss "$time" -vframes 1 -i "$1" "$target_size" "$screenshot_dir/$target" &>/dev/null; then
             echo "Saved screenshot: $screenshot_dir/$target"
         else
             echo "Could not save screenshot. An error occured."
@@ -96,7 +101,7 @@ while read -r line; do
             duration=$( echo "$time - $start" | bc )
             echo "Extracting segment from time ${start}s to ${time}s (${duration}s in total)..."
             #echo ffmpeg -ss "$time" -t "$duration" -i "$1" -vn -acodec copy "$screenshot_dir/$target"
-            if extract_segment "$1" "$screenshot_dir/$target" $start $time; then
+            if extract_segment "$1" "$screenshot_dir/$target" "$start" "$time"; then
                 echo "Saved segment: $screenshot_dir/$target"
             else
                 echo "Could not save segment. An error occured."

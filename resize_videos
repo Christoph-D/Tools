@@ -17,9 +17,9 @@ get_length() {
 # Expects suitable file descriptors in MPLAYER[0] and MPLAYER[1].
 get_position() {
     local POSITION
-    while read -t 0.1 -u ${MPLAYER[0]} POSITION; do :; done 2>/dev/null
-    echo "get_property time_pos" >&${MPLAYER[1]} 2>/dev/null
-    read -t 3 -u ${MPLAYER[0]} POSITION 2>/dev/null
+    while read -r -t 0.1 -u "${MPLAYER[0]}" POSITION; do :; done 2>/dev/null
+    echo "get_property time_pos" 1>&"${MPLAYER[1]}" 2>/dev/null
+    read -r -t 3 -u "${MPLAYER[0]}" POSITION 2>/dev/null
     POSITION="${POSITION#ANS_time_pos=}"
     if is_float "$POSITION"; then
         echo "scale=2;100*$POSITION/$LENGTH" | bc
@@ -38,9 +38,12 @@ reencode() {
 
     # Give the user something to look at.
     printf '* Starting reencoding of: %s\n' "$(basename "$SOURCE_FILE")"
-    local LENGTH=$(get_length "$SOURCE_FILE")
-    local MINUTES=$(echo "$LENGTH/60" | bc)
-    local SECONDS=$(echo "$LENGTH%60" | bc)
+    local LENGTH
+    LENGTH=$(get_length "$SOURCE_FILE")
+    local MINUTES
+    MINUTES=$(echo "$LENGTH/60" | bc)
+    local SECONDS
+    SECONDS=$(echo "$LENGTH%60" | bc)
     printf "  Video length: %02.0f:%02.0f\n" "$MINUTES" "$SECONDS"
 
     # Setup encoding threads.
@@ -48,10 +51,10 @@ reencode() {
     local TMP_RESULT_FILE="$TMP_DIR/result.mkv"
     rm -f "$TMP_SOURCE_FILE" "$TMP_RESULT_FILE"
     mkfifo "$TMP_SOURCE_FILE"
-    coproc MPLAYER (
+    coproc MPLAYER {
         mplayer -vo yuv4mpeg:file="$TMP_SOURCE_FILE" \
             -vf scale="$NEW_SIZE" -nosound -slave -quiet -benchmark "$SOURCE_FILE" 2>/dev/null
-    )
+    }
     echo "Working in: $TMP_DIR"
     x264 --tune animation --preset medium --crf 20 --threads auto \
         --output "$TMP_RESULT_FILE" "$TMP_SOURCE_FILE" &>/dev/null &
@@ -66,7 +69,8 @@ reencode() {
 
     # Merge into final container.
     echo -n "  Merging encoded stream into new mkv container..."
-    local NEW_FILE="$(basename "$1")"
+    local NEW_FILE
+    NEW_FILE="$(basename "$1")"
     NEW_FILE=${NEW_FILE%.*}.mkv
     mkvmerge -o "$NEW_FILE" "$TMP_RESULT_FILE" --no-video "$SOURCE_FILE" &> /dev/null
     echo "done."
@@ -74,7 +78,7 @@ reencode() {
 
 TMP_DIR=$(mktemp --directory)
 # Be sure to kill mplayer and x264 on abnormal exit.
-trap "rm -rf '$TMP_DIR'; kill %1 %2 &> /dev/null" EXIT
+trap 'rm -rf '"'$TMP_DIR"'; kill %1 %2 &> /dev/null' EXIT
 
 NEW_SIZE=$1
 shift

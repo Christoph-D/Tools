@@ -18,5 +18,4 @@ jobs:
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
         with:
-          scandir: '.'
-          additional_files: '*.sh'
+          additional_files: 'better_import cronic eb play resize_videos timescale_video windowid-screenshot'

@@ -42,7 +42,7 @@ if [[ $exit_status -ne 0 || -s "$err" ]]; then
     echo
     echo "STANDARD OUTPUT:"
     cat "$out"
-    if [[ $trace != $err ]]; then
+    if [[ $trace != "$err" ]]; then
         echo
         echo "TRACE-ERROR OUTPUT:"
         cat "$trace"

@@ -24,7 +24,7 @@ fi
 
 i=1
 while [[ -f $i.png || -f ${i}_small.png ]]; do
-    let ++i
+    ((i++))
 done
 
 import_window() {
@@ -39,7 +39,7 @@ too_small() {
 
 tries=6
 while :; do
-    let --tries
+    ((tries--))
     import_window "$WINDOW_ID" "$i.png"
     if ! too_small "$i.png" || [[ $tries -eq 0 ]]; then
         break
