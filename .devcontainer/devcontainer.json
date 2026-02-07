@@ -1,0 +1,47 @@
+{
+    "name": "Tools",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "Continue.continue",
+                "DavidAnson.vscode-markdownlint",
+                "eamodio.gitlens",
+                "esbenp.prettier-vscode",
+                "saoudrizwan.claude-dev",
+                "sst-dev.opencode"
+            ],
+            "settings": {
+                "[markdown]": {
+                    "editor.defaultFormatter": "esbenp.prettier-vscode",
+                    "editor.unicodeHighlight.ambiguousCharacters": false,
+                    "editor.unicodeHighlight.invisibleCharacters": false,
+                    "diffEditor.ignoreTrimWhitespace": false,
+                    "editor.wordWrap": "on",
+                    "editor.quickSuggestions": {
+                        "comments": "off",
+                        "strings": "off",
+                        "other": "off"
+                    }
+                },
+                "prettier.proseWrap": "always",
+                "markdownlint.config": {
+                    "no-duplicate-heading": {
+                        "siblings_only": true
+                    }
+                },
+                "files.insertFinalNewline": true
+            }
+        }
+    },
+    "workspaceFolder": "/workspaces/tools",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/tools,type=bind,consistency=cached",
+    "remoteUser": "user",
+    "mounts": [
+        "source=config-tools,target=/home/user/persistent-config,type=volume",
+        "source=/etc/localtime,target=/usr/share/zoneinfo/hostlocaltime,type=bind,readonly"
+    ],
+    "postCreateCommand": "bash .devcontainer/setup.sh"
+}
